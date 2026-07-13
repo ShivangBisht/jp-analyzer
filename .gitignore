@@ -87,3 +87,6 @@ unseen_sample_manifest.json
 unseen_novel_sentences.txt
 unseen_novel_sentences_hash.json
 phase9_alpha22_unseen_*
+
+# Local unseen-corpus preparation utility
+create_unseen_corpus.py
