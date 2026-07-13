@@ -90,3 +90,8 @@ phase9_alpha22_unseen_*
 
 # Local unseen-corpus preparation utility
 create_unseen_corpus.py
+
+# Phase 10 local parity outputs
+phase10_parity_*.json
+phase10_*_check.json
+apply_phase10_1_facade.py
