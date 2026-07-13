@@ -1,0 +1,81 @@
+﻿# Local Python environments
+.venv/
+.venv*/
+venv/
+env/
+
+# Python-generated data
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Analyzer runtime databases
+data/
+*.sqlite
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+
+# Generated analysis results
+phase8_*.json
+phase8_*.jsonl
+phase9_*.json
+phase9_*.jsonl
+work_pc_*.json
+
+# Generated reports
+*_result.json
+*_results.json
+*_results.jsonl
+*_summary.json
+*_review_report.txt
+*_changed_sentences.json
+*_flagged_sentences.json
+*_changed_and_flagged.json
+*_alignment_failures.json
+*_readonly_regressions.json
+
+# Frozen benchmark outputs remain local
+frozen_phase9_alpha22/benchmark_200/
+
+# Temporary inventories and source bundles
+*_inventory.txt
+*_current_source.txt
+*_source_bundle.txt
+*_debug.json
+staged_files_check.txt
+
+# Backups and temporary files
+*.bak
+*.backup
+*.tmp
+*.temp
+
+# Cleanup and one-time migration scripts
+cleanup_*.ps1
+restore_*.ps1
+delete_*.ps1
+apply_*.py
+patch_*.py
+
+# Archives and quarantine
+_archive*/
+_backup*/
+_cleanup*/
+*.zip
+*.7z
+*.rar
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/

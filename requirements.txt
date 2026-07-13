@@ -1,0 +1,8 @@
+fastapi==0.116.1
+uvicorn[standard]==0.35.0
+sudachipy>=0.6.11,<0.7
+sudachidict_core>=20250129
+spacy>=3.8,<3.9
+ginza==5.2.0
+ja_ginza==5.2.0
+pydantic>=2.11,<3
