@@ -79,3 +79,11 @@ desktop.ini
 # Logs
 *.log
 logs/
+
+# Local unseen-novel evaluation corpus and outputs
+all_sentences_original.txt
+unseen_sample_indices.txt
+unseen_sample_manifest.json
+unseen_novel_sentences.txt
+unseen_novel_sentences_hash.json
+phase9_alpha22_unseen_*
