@@ -95,3 +95,14 @@ create_unseen_corpus.py
 phase10_parity_*.json
 phase10_*_check.json
 apply_phase10_1_facade.py
+
+# Local Phase 10 source-review bundles
+phase10_2_current_source.txt
+
+# Phase 10.2 local infrastructure artifacts
+apply_phase10_2_infrastructure.py
+phase10_2_current_source.txt
+phase10_semantic_snapshots.json
+phase10_reference_*.json
+phase10_snapshot_*.json
+*.phase10.1.bak
