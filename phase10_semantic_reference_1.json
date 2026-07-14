@@ -1,0 +1,324 @@
+[
+  {
+    "contractVersion": "1.0",
+    "textSha256": "6baa1927023b118dacec14328f7b6124bfc19a6b81fd067ce23c4c443f3b400f",
+    "textLength": 56,
+    "resolvedSpans": [
+      {
+        "start": 0,
+        "end": 2,
+        "surface": "そこ",
+        "role": "term",
+        "headword": "そこ",
+        "grammarId": null,
+        "confidence": 0.84,
+        "sourceLayer": "lexical"
+      },
+      {
+        "start": 2,
+        "end": 4,
+        "surface": "まで",
+        "role": "particle",
+        "headword": null,
+        "grammarId": null,
+        "confidence": 0.8,
+        "sourceLayer": "morphology-fallback"
+      },
+      {
+        "start": 4,
+        "end": 7,
+        "surface": "大きな",
+        "role": "term",
+        "headword": "大きな",
+        "grammarId": null,
+        "confidence": 0.84,
+        "sourceLayer": "lexical"
+      },
+      {
+        "start": 7,
+        "end": 8,
+        "surface": "声",
+        "role": "term",
+        "headword": "声",
+        "grammarId": null,
+        "confidence": 0.84,
+        "sourceLayer": "lexical"
+      },
+      {
+        "start": 8,
+        "end": 14,
+        "surface": "ではなかった",
+        "role": "grammar",
+        "headword": null,
+        "grammarId": "NEGATIVE_COPULA_PAST",
+        "confidence": 0.98,
+        "sourceLayer": "grammar"
+      },
+      {
+        "start": 14,
+        "end": 17,
+        "surface": "けれど",
+        "role": "grammar",
+        "headword": null,
+        "grammarId": "KEREDO",
+        "confidence": 0.95,
+        "sourceLayer": "grammar"
+      },
+      {
+        "start": 17,
+        "end": 18,
+        "surface": "、",
+        "role": "punctuation",
+        "headword": null,
+        "grammarId": null,
+        "confidence": 1.0,
+        "sourceLayer": "orthography"
+      },
+      {
+        "start": 18,
+        "end": 20,
+        "surface": "静か",
+        "role": "term",
+        "headword": "静か",
+        "grammarId": null,
+        "confidence": 0.84,
+        "sourceLayer": "lexical"
+      },
+      {
+        "start": 20,
+        "end": 21,
+        "surface": "な",
+        "role": "particle",
+        "headword": null,
+        "grammarId": null,
+        "confidence": 0.8,
+        "sourceLayer": "morphology-fallback"
+      },
+      {
+        "start": 21,
+        "end": 23,
+        "surface": "覚悟",
+        "role": "term",
+        "headword": "覚悟",
+        "grammarId": null,
+        "confidence": 0.84,
+        "sourceLayer": "lexical"
+      },
+      {
+        "start": 23,
+        "end": 24,
+        "surface": "を",
+        "role": "particle",
+        "headword": null,
+        "grammarId": null,
+        "confidence": 0.8,
+        "sourceLayer": "morphology-fallback"
+      },
+      {
+        "start": 24,
+        "end": 26,
+        "surface": "伴う",
+        "role": "term",
+        "headword": "伴う",
+        "grammarId": null,
+        "confidence": 0.84,
+        "sourceLayer": "lexical"
+      },
+      {
+        "start": 26,
+        "end": 28,
+        "surface": "よう",
+        "role": "particle",
+        "headword": null,
+        "grammarId": null,
+        "confidence": 0.8,
+        "sourceLayer": "morphology-fallback"
+      },
+      {
+        "start": 28,
+        "end": 29,
+        "surface": "な",
+        "role": "particle",
+        "headword": null,
+        "grammarId": null,
+        "confidence": 0.8,
+        "sourceLayer": "morphology-fallback"
+      },
+      {
+        "start": 29,
+        "end": 31,
+        "surface": "強い",
+        "role": "term",
+        "headword": "強い",
+        "grammarId": null,
+        "confidence": 0.84,
+        "sourceLayer": "lexical"
+      },
+      {
+        "start": 31,
+        "end": 32,
+        "surface": "声",
+        "role": "term",
+        "headword": "声",
+        "grammarId": null,
+        "confidence": 0.84,
+        "sourceLayer": "lexical"
+      },
+      {
+        "start": 32,
+        "end": 33,
+        "surface": "は",
+        "role": "particle",
+        "headword": null,
+        "grammarId": null,
+        "confidence": 0.8,
+        "sourceLayer": "morphology-fallback"
+      },
+      {
+        "start": 33,
+        "end": 34,
+        "surface": "、",
+        "role": "punctuation",
+        "headword": null,
+        "grammarId": null,
+        "confidence": 1.0,
+        "sourceLayer": "orthography"
+      },
+      {
+        "start": 34,
+        "end": 36,
+        "surface": "この",
+        "role": "term",
+        "headword": "この",
+        "grammarId": null,
+        "confidence": 0.88,
+        "sourceLayer": "lexical"
+      },
+      {
+        "start": 36,
+        "end": 37,
+        "surface": "場",
+        "role": "term",
+        "headword": "場",
+        "grammarId": null,
+        "confidence": 0.84,
+        "sourceLayer": "lexical"
+      },
+      {
+        "start": 37,
+        "end": 38,
+        "surface": "の",
+        "role": "particle",
+        "headword": null,
+        "grammarId": null,
+        "confidence": 0.8,
+        "sourceLayer": "morphology-fallback"
+      },
+      {
+        "start": 38,
+        "end": 40,
+        "surface": "鬱々",
+        "role": "term",
+        "headword": "鬱々",
+        "grammarId": null,
+        "confidence": 0.84,
+        "sourceLayer": "lexical"
+      },
+      {
+        "start": 40,
+        "end": 41,
+        "surface": "と",
+        "role": "particle",
+        "headword": null,
+        "grammarId": null,
+        "confidence": 0.8,
+        "sourceLayer": "morphology-fallback"
+      },
+      {
+        "start": 41,
+        "end": 42,
+        "surface": "し",
+        "role": "term",
+        "headword": "する",
+        "grammarId": null,
+        "confidence": 0.84,
+        "sourceLayer": "lexical"
+      },
+      {
+        "start": 42,
+        "end": 43,
+        "surface": "た",
+        "role": "particle",
+        "headword": null,
+        "grammarId": null,
+        "confidence": 0.8,
+        "sourceLayer": "morphology-fallback"
+      },
+      {
+        "start": 43,
+        "end": 45,
+        "surface": "空気",
+        "role": "term",
+        "headword": "空気",
+        "grammarId": null,
+        "confidence": 0.84,
+        "sourceLayer": "lexical"
+      },
+      {
+        "start": 45,
+        "end": 46,
+        "surface": "を",
+        "role": "particle",
+        "headword": null,
+        "grammarId": null,
+        "confidence": 0.8,
+        "sourceLayer": "morphology-fallback"
+      },
+      {
+        "start": 46,
+        "end": 50,
+        "surface": "切り裂く",
+        "role": "term",
+        "headword": "切り裂く",
+        "grammarId": null,
+        "confidence": 0.84,
+        "sourceLayer": "lexical"
+      },
+      {
+        "start": 50,
+        "end": 55,
+        "surface": "ようだった",
+        "role": "grammar",
+        "headword": null,
+        "grammarId": "YOU_DA_PAST",
+        "confidence": 0.95,
+        "sourceLayer": "grammar"
+      },
+      {
+        "start": 55,
+        "end": 56,
+        "surface": "。",
+        "role": "punctuation",
+        "headword": null,
+        "grammarId": null,
+        "confidence": 1.0,
+        "sourceLayer": "orthography"
+      }
+    ],
+    "unresolvedSpans": [],
+    "diagnostics": [],
+    "kwjaAlignmentComplete": true,
+    "dictionarySummary": {
+      "ready": true,
+      "candidateCount": 13,
+      "matchedCandidateCount": 13,
+      "unmatchedCandidateCount": 0,
+      "typeEvidenceCounts": {
+        "term": 357,
+        "grammar": 11,
+        "name": 7,
+        "expression": 1
+      }
+    }
+  }
+]
