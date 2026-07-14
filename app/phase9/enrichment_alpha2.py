@@ -229,9 +229,14 @@ def _normalized_kwja_candidate(proposal: dict[str, Any], dictionary_record: dict
 
 
 def analyze_integrated_alpha2(text: str, nlp, *, use_dictionary: bool = True,
-                              raw_knp: str | None = None, kwja_executable: str | None = None) -> dict[str, Any]:
+                              raw_knp: str | None = None, kwja_executable: str | None = None,
+                              analyze_kwja_fn=None, evaluate_analysis_fn=None,
+                              evaluate_candidate_fn=None) -> dict[str, Any]:
+    analyze_kwja_fn = analyze_kwja_fn or analyze_kwja_alpha1
+    evaluate_analysis_fn = evaluate_analysis_fn or evaluate_analysis_candidates
+    evaluate_candidate_fn = evaluate_candidate_fn or evaluate_candidate
     baseline = analyze_layered_alpha321(text, nlp)
-    dictionary = evaluate_analysis_candidates(baseline) if use_dictionary else None
+    dictionary = evaluate_analysis_fn(baseline) if use_dictionary else None
     alpha34 = analyze_layered_alpha34(text, nlp, dictionary)
     baseline_snapshot = {
         "morphemes": _stable_hash(alpha34.get("morphemes")),
@@ -239,7 +244,7 @@ def analyze_integrated_alpha2(text: str, nlp, *, use_dictionary: bool = True,
         "resolved_spans": _stable_hash(alpha34.get("resolved_spans_alpha34")),
         "decisions": _stable_hash(alpha34.get("resolver_decisions_alpha34")),
     }
-    kwja = analyze_kwja_alpha1(text, raw_knp=raw_knp, executable=kwja_executable)
+    kwja = analyze_kwja_fn(text, raw_knp=raw_knp, executable=kwja_executable)
     attached = attach_kwja_read_only(alpha34, kwja)
     raw_proposals = generate_kwja_candidates(text, alpha34, kwja)
     baseline_spans = alpha34.get("resolved_spans_alpha34") or []
@@ -247,7 +252,7 @@ def analyze_integrated_alpha2(text: str, nlp, *, use_dictionary: bool = True,
 
     dictionary_records = []
     for proposal in proposals:
-        dictionary_records.append(evaluate_candidate(proposal) if use_dictionary else None)
+        dictionary_records.append(evaluate_candidate_fn(proposal) if use_dictionary else None)
     eligible_pairs = [(p, d) for p, d in zip(proposals, dictionary_records) if p.get("resolver_eligible")]
     kwja_candidates = [_normalized_kwja_candidate(p, d, i) for i, (p, d) in enumerate(eligible_pairs)]
     all_candidates = list(alpha34.get("resolver_candidates_alpha34") or []) + kwja_candidates

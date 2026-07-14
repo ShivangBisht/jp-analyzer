@@ -4,9 +4,8 @@ from dataclasses import dataclass
 from threading import RLock
 
 from .config import AnalyzerConfig
-from .dictionary_runtime import get_dictionary_status
 from .ginza_runtime import get_ginza, ginza_model_name
-from .kwja_runtime import kwja_status
+from .services import AnalyzerServices
 
 
 @dataclass(frozen=True)
@@ -21,6 +20,7 @@ class AnalyzerRuntime:
 
     def __init__(self, config: AnalyzerConfig | None = None):
         self.config = config or AnalyzerConfig.from_environment()
+        self.services = AnalyzerServices.from_config(self.config)
 
     def get_nlp(self):
         return get_ginza(self.config)
@@ -28,8 +28,8 @@ class AnalyzerRuntime:
     def status(self) -> RuntimeStatus:
         return RuntimeStatus(
             ginza_model=ginza_model_name(),
-            kwja=kwja_status(self.config),
-            dictionary=get_dictionary_status(),
+            kwja=self.services.kwja.status(),
+            dictionary=self.services.dictionary.status(),
         )
 
 

@@ -1,3 +1,4 @@
+from .adapters import DictionaryAdapter, KwjaAdapter
 from .config import AnalyzerConfig
 from .contracts import AnalyzeOptions, linguistic_projection
 from .engine import AnalyzerEngine
@@ -11,6 +12,8 @@ __all__ = [
     "ANALYZER_VERSION",
     "SCHEMA_VERSION",
     "AnalyzerConfig",
+    "DictionaryAdapter",
+    "KwjaAdapter",
     "AnalyzeOptions",
     "AnalyzerEngine",
     "AnalyzerRuntime",

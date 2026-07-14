@@ -12,7 +12,7 @@ def health_report(runtime: AnalyzerRuntime | None = None) -> dict:
         "version": ANALYZER_VERSION,
         "schemaVersion": SCHEMA_VERSION,
         "engineVersion": LEGACY_ENGINE_VERSION,
-        "mode": "production-consolidation-runtime-routing",
+        "mode": "production-consolidation-stable-evidence-routing",
         "ginzaModel": status.ginza_model,
         "kwja": status.kwja,
         "dictionary": status.dictionary,

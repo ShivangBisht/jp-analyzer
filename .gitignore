@@ -118,3 +118,9 @@ apply_phase10_3_routing.py
 phase10_3_current_source.txt
 phase10_3_api_check.json
 *.phase10.2.bak
+
+# Machine-specific runtime configuration
+configure_local_runtime.ps1
+
+# Local Phase 10.4 source review bundle
+phase10_4_current_source.txt
