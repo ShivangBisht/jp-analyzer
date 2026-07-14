@@ -4,7 +4,7 @@ from collections.abc import Callable
 from inspect import signature
 from typing import Any
 
-from app.phase9.enrichment_alpha2 import analyze_integrated_alpha2
+from .layers import analyze_layers
 
 from .adapters import DictionaryAdapter, KwjaAdapter
 from .contracts import AnalyzeOptions
@@ -17,7 +17,7 @@ LegacyEngine = Callable[..., dict[str, Any]]
 
 
 class AnalyzerEngine:
-    """Stable production routing over the frozen Phase 9 linguistic engine."""
+    """Single production entry point over the consolidated linguistic layers."""
 
     def __init__(
         self,
@@ -27,7 +27,7 @@ class AnalyzerEngine:
         dictionary_adapter: DictionaryAdapter | None = None,
     ):
         self.runtime = runtime or get_runtime()
-        self.legacy_engine = legacy_engine or analyze_integrated_alpha2
+        self.legacy_engine = legacy_engine or analyze_layers
         services = getattr(self.runtime, "services", None)
         runtime_config = getattr(self.runtime, "config", None)
 

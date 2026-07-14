@@ -1,6 +1,6 @@
 from __future__ import annotations
 from pathlib import Path
-from app.phase9.kwja_alpha1 import analyze_kwja_alpha1, run_kwja
+from .layers.kwja import analyze_kwja_alpha1, run_kwja
 from .config import AnalyzerConfig
 
 def resolve_kwja_executable(executable=None, config=None) -> Path:

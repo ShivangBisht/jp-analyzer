@@ -1,5 +1,5 @@
-from app.phase8.dictionary_evidence import dictionary_ready, evaluate_analysis_candidates, evaluate_candidate
-from app.phase8.dictionary_store import DB_PATH, status
+from .layers.dictionary import dictionary_ready, evaluate_analysis_candidates, evaluate_candidate
+from .layers.dictionary_store import DB_PATH, status
 
 def get_dictionary_status():
     result = dict(status())

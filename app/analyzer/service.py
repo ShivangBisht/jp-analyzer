@@ -2,8 +2,8 @@ from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from app.phase8.dictionary_api import router as dictionary_sync_router
-from app.phase8.dictionary_evidence_api import router as dictionary_evidence_router
+from .layers.dictionary_api import router as dictionary_sync_router
+from .layers.dictionary_evidence_api import router as dictionary_evidence_router
 
 from .health import health_report
 from .pipeline import analyze

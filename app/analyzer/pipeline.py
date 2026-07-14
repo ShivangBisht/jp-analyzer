@@ -1,9 +1,14 @@
 from __future__ import annotations
 
-from app.phase9.enrichment_alpha2 import (
-    VERSION as LEGACY_RUNTIME_VERSION,
-    analyze_integrated_alpha2,
+from .layers.evidence_gate import (
+    VERSION as CONSOLIDATED_ENGINE_VERSION,
+    analyze_integrated_alpha2 as analyze_layers,
 )
+
+# Temporary compatibility alias for the established facade test and callers
+# that patch this module-level seam. Production still resolves to the
+# consolidated layer engine.
+analyze_integrated_alpha2 = analyze_layers
 
 from .compact_output import compact_analysis
 from .contracts import AnalyzeOptions
@@ -29,10 +34,10 @@ def analyze_full(
     raw_knp=None,
     kwja_executable=None,
 ):
-    if LEGACY_RUNTIME_VERSION != LEGACY_ENGINE_VERSION:
+    if CONSOLIDATED_ENGINE_VERSION != LEGACY_ENGINE_VERSION:
         raise RuntimeError(
             f"Expected legacy engine {LEGACY_ENGINE_VERSION!r}, "
-            f"found {LEGACY_RUNTIME_VERSION!r}."
+            f"found {CONSOLIDATED_ENGINE_VERSION!r}."
         )
     options = AnalyzeOptions(
         use_dictionary=use_dictionary,
