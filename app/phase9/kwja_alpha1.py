@@ -316,7 +316,7 @@ def normalize_kwja(source: str, raw_knp: str, *, model_size: str = "base", elaps
     }
 
 
-def run_kwja(text: str, *, executable: str | None = None, model_size: str = "base", timeout_seconds: int = 120) -> tuple[str, float]:
+def run_kwja(text: str, *, executable: str | None = None, model_size: str = "base", timeout_seconds: int = 300) -> tuple[str, float]:
     exe = executable or os.getenv("KWJA_EXE")
     if not exe:
         raise RuntimeError("Set KWJA_EXE to the isolated KWJA executable path.")

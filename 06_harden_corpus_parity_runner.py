@@ -1,4 +1,44 @@
 from __future__ import annotations
+
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+
+
+def replace_once(path: Path, old: str, new: str) -> None:
+    text = path.read_text(encoding="utf-8-sig")
+    if new in text:
+        print(f"Already updated: {path.relative_to(ROOT)}")
+        return
+    if old not in text:
+        raise RuntimeError(f"Expected text not found in {path}: {old!r}")
+    path.write_text(text.replace(old, new, 1), encoding="utf-8", newline="\n")
+    print(f"Updated: {path.relative_to(ROOT)}")
+
+
+# A model cold-start or temporary CPU contention can exceed 120 seconds.
+# Raise both paths equally; this changes failure tolerance, not semantics.
+for relative in (
+    "app/phase9/kwja_alpha1.py",
+    "app/analyzer/layers/kwja.py",
+):
+    path = ROOT / relative
+    text = path.read_text(encoding="utf-8-sig")
+    if "timeout_seconds: int = 300" in text:
+        print(f"Already updated: {relative}")
+        continue
+    if "timeout_seconds: int = 120" not in text:
+        raise RuntimeError(f"Expected KWJA timeout declaration not found: {relative}")
+    path.write_text(
+        text.replace("timeout_seconds: int = 120", "timeout_seconds: int = 300", 1),
+        encoding="utf-8",
+        newline="\n",
+    )
+    print(f"Updated: {relative}")
+
+runner = ROOT / "run_consolidated_parity.py"
+runner.write_text(
+'''from __future__ import annotations
 import argparse
 import json
 import time
@@ -186,3 +226,8 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+''',
+    encoding="utf-8",
+    newline="\n",
+)
+print("Updated: run_consolidated_parity.py")
