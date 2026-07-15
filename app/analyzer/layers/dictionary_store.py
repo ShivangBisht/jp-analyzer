@@ -4,7 +4,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
-DB_PATH = Path(__file__).resolve().parents[2] / "data" / "phase8_analysis_lexicon.sqlite3"
+DB_PATH = Path(__file__).resolve().parents[3] / "data" / "phase8_analysis_lexicon.sqlite3"
 _lock = threading.RLock()
 
 SCHEMA = """
