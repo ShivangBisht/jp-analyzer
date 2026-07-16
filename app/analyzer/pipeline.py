@@ -5,16 +5,11 @@ from .layers.evidence_gate import (
     analyze_integrated_alpha2 as analyze_layers,
 )
 
-# Temporary compatibility alias for the established facade test and callers
-# that patch this module-level seam. Production still resolves to the
-# consolidated layer engine.
-analyze_integrated_alpha2 = analyze_layers
-
 from .compact_output import compact_analysis
 from .contracts import AnalyzeOptions
 from .engine import AnalyzerEngine
 from .runtime import get_runtime
-from .version import ANALYZER_VERSION, LEGACY_ENGINE_VERSION
+from .version import ANALYZER_VERSION, ENGINE_CONTRACT_VERSION
 
 
 def _engine() -> AnalyzerEngine:
@@ -22,7 +17,7 @@ def _engine() -> AnalyzerEngine:
     # it with a sentinel, while production still routes through AnalyzerEngine.
     return AnalyzerEngine(
         runtime=get_runtime(),
-        legacy_engine=analyze_integrated_alpha2,
+        analyzer_fn=analyze_layers,
     )
 
 
@@ -34,9 +29,9 @@ def analyze_full(
     raw_knp=None,
     kwja_executable=None,
 ):
-    if CONSOLIDATED_ENGINE_VERSION != LEGACY_ENGINE_VERSION:
+    if CONSOLIDATED_ENGINE_VERSION != ENGINE_CONTRACT_VERSION:
         raise RuntimeError(
-            f"Expected legacy engine {LEGACY_ENGINE_VERSION!r}, "
+            f"Expected engine contract {ENGINE_CONTRACT_VERSION!r}, "
             f"found {CONSOLIDATED_ENGINE_VERSION!r}."
         )
     options = AnalyzeOptions(

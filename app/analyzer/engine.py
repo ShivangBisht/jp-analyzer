@@ -10,10 +10,10 @@ from .adapters import DictionaryAdapter, KwjaAdapter
 from .contracts import AnalyzeOptions
 from .runtime import AnalyzerRuntime, get_runtime
 from .source_contract import validate_analysis_source
-from .version import LEGACY_ENGINE_VERSION
+from .version import ENGINE_CONTRACT_VERSION
 
 
-LegacyEngine = Callable[..., dict[str, Any]]
+AnalyzerFunction = Callable[..., dict[str, Any]]
 
 
 class AnalyzerEngine:
@@ -22,12 +22,12 @@ class AnalyzerEngine:
     def __init__(
         self,
         runtime: AnalyzerRuntime | None = None,
-        legacy_engine: LegacyEngine | None = None,
+        analyzer_fn: AnalyzerFunction | None = None,
         kwja_adapter: KwjaAdapter | None = None,
         dictionary_adapter: DictionaryAdapter | None = None,
     ):
         self.runtime = runtime or get_runtime()
-        self.legacy_engine = legacy_engine or analyze_layers
+        self.analyzer_fn = analyzer_fn or analyze_layers
         services = getattr(self.runtime, "services", None)
         runtime_config = getattr(self.runtime, "config", None)
 
@@ -55,21 +55,21 @@ class AnalyzerEngine:
             "raw_knp": opts.raw_knp,
             "kwja_executable": opts.kwja_executable,
         }
-        parameters = signature(self.legacy_engine).parameters
+        parameters = signature(self.analyzer_fn).parameters
         if "analyze_kwja_fn" in parameters:
             engine_kwargs.update({
                 "analyze_kwja_fn": self.kwja_adapter.analyze,
                 "evaluate_analysis_fn": self.dictionary_adapter.evaluate_analysis,
                 "evaluate_candidate_fn": self.dictionary_adapter.evaluate_candidate,
             })
-        result = self.legacy_engine(
+        result = self.analyzer_fn(
             text,
             nlp if nlp is not None else self.runtime.get_nlp(),
             **engine_kwargs,
         )
-        if result.get("version") != LEGACY_ENGINE_VERSION:
+        if result.get("version") != ENGINE_CONTRACT_VERSION:
             raise RuntimeError(
-                f"Expected legacy engine {LEGACY_ENGINE_VERSION!r}, "
+                f"Expected engine contract {ENGINE_CONTRACT_VERSION!r}, "
                 f"found {result.get('version')!r}."
             )
         source_diagnostics = validate_analysis_source(result)

@@ -1,4 +1,4 @@
-﻿# Local Python environments
+# Local Python environments
 .venv/
 .venv*/
 venv/
@@ -124,3 +124,9 @@ configure_local_runtime.ps1
 
 # Local Phase 10.4 source review bundle
 phase10_4_current_source.txt
+.kwja-venv/
+consolidation_*_reference*.json
+consolidation_*_actual*.json
+consolidation_*_report*.json
+fresh_unseen_*.json
+post_cleanup_*.json

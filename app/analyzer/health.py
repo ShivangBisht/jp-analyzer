@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .runtime import AnalyzerRuntime, get_runtime
-from .version import ANALYZER_VERSION, LEGACY_ENGINE_VERSION, SCHEMA_VERSION
+from .version import ANALYZER_VERSION, ENGINE_CONTRACT_VERSION, SCHEMA_VERSION
 
 
 def health_report(runtime: AnalyzerRuntime | None = None) -> dict:
@@ -11,7 +11,7 @@ def health_report(runtime: AnalyzerRuntime | None = None) -> dict:
         "status": "ok",
         "version": ANALYZER_VERSION,
         "schemaVersion": SCHEMA_VERSION,
-        "engineVersion": LEGACY_ENGINE_VERSION,
+        "engineVersion": ENGINE_CONTRACT_VERSION,
         "mode": "production-consolidation-stable-evidence-routing",
         "ginzaModel": status.ginza_model,
         "kwja": status.kwja,
