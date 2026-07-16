@@ -130,3 +130,12 @@ consolidation_*_actual*.json
 consolidation_*_report*.json
 fresh_unseen_*.json
 post_cleanup_*.json
+
+# Local analyzer regression outputs
+post_cleanup_*.json
+consolidation_*_reference*.json
+consolidation_*_actual*.json
+consolidation_*_report*.json
+fresh_unseen_*.json
+s*.knp
+s*_actual.json

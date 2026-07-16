@@ -1,0 +1,17 @@
+{
+  "corpus": "consolidation_fresh_unseen_200.txt",
+  "synthetic": true,
+  "original": true,
+  "seed": 20260715,
+  "sentenceCount": 200,
+  "nonEmptySentenceCount": 200,
+  "uniqueSentenceCount": 200,
+  "genreCounts": {
+    "adventure": 50,
+    "action": 50,
+    "romance": 50,
+    "slice_of_life": 50
+  },
+  "sha256": "33b32d7297358d2a11ab4eec0d4fce3a6e23f3d326b3d7641d937d8535d1e50b",
+  "notes": "Original synthetic Japanese novel-style regression corpus; one sentence per line; four genres balanced and shuffled deterministically."
+}

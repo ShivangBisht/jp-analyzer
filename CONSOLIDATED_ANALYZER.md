@@ -1,4 +1,4 @@
-# Consolidated JP Analyzer
+﻿# Consolidated JP Analyzer
 
 The supported production implementation is `app.analyzer.analyze`. The analyzer owns morphology, protected ranges, structure, candidates, dictionary evidence, KWJA evidence, evidence gating, the final decision, diagnostics, and compact/full output.
 
@@ -13,5 +13,6 @@ powershell.exe -ExecutionPolicy Bypass -File .\run_tests.ps1
 ## Run frozen snapshot regression
 
 ```powershell
-& .\.venv\Scripts\python.exe .\run_snapshot_regression.py .\random_sentences.txt --reference .\consolidation_dev_reference_200.json --output .\post_cleanup_dev_actual.json --report .\post_cleanup_dev_report.json
+& .\.venv\Scripts\python.exe .\run_snapshot_regression.py .\tests\corpora\development\random_sentences.txt --reference .\consolidation_dev_reference_200.json --output .\post_cleanup_dev_actual.json --report .\post_cleanup_dev_report.json
 ```
+
