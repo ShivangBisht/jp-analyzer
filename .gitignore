@@ -140,3 +140,4 @@ fresh_unseen_*.json
 s*.knp
 s*_actual.json
 *_raw.knp
+streamlined_*.json
