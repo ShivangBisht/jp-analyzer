@@ -1,9 +1,0 @@
-{
-  "sentences": 200,
-  "completed": 200,
-  "passed": 200,
-  "failed": 0,
-  "semanticParity": true,
-  "meanRuntimeMs": 10037.466634000059,
-  "mismatches": []
-}
