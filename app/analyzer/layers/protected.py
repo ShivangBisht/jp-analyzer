@@ -170,5 +170,3 @@ def analyze_layered_alpha3(text,nlp,dictionary_evidence=None):
     result.update({'version':'8.0.0-alpha3','orthographic_spans':orth,'person_references':persons,'grammar_matches_alpha3':grammar,'predicate_relations_alpha3':relations,'dictionary_candidates_alpha3':dc,'lexical_items_alpha3':lexical,'reader_decisions':decisions,'color_spans_alpha3':colors,'diagnostics_alpha3':diagnostics,'layer0_snapshot':before,'alpha3_contract':{'non_destructive':True,'earlier_layers_preserved':True,'only_reader_projection_is_exclusive':True}})
     return result
 
-
-analyze = analyze_layered_alpha3

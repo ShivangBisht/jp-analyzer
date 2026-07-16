@@ -325,6 +325,11 @@ def run_kwja(text: str, *, executable: str | None = None, model_size: str = "bas
         raise FileNotFoundError(f"KWJA executable not found: {path}")
     env = os.environ.copy()
     env["PYTHONUTF8"] = "1"
+    # Analysis is cache-only by default. Set any variable to "0" explicitly
+    # when installing or refreshing models in a controlled online session.
+    env.setdefault("HF_HUB_OFFLINE", "1")
+    env.setdefault("TRANSFORMERS_OFFLINE", "1")
+    env.setdefault("HF_DATASETS_OFFLINE", "1")
     started = time.perf_counter()
     result = subprocess.run(
         [str(path), "--model-size", model_size, "--text", text],
@@ -356,5 +361,3 @@ def attach_kwja_read_only(existing_analysis: dict[str, Any], kwja_layer: dict[st
     }
     return result
 
-
-analyze = analyze_kwja_alpha1

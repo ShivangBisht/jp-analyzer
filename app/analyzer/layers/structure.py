@@ -136,5 +136,3 @@ def analyze_layered_alpha31(text,nlp,dictionary_evidence=None):
     })
     return result
 
-
-analyze = analyze_layered_alpha31

@@ -139,3 +139,4 @@ consolidation_*_report*.json
 fresh_unseen_*.json
 s*.knp
 s*_actual.json
+*_raw.knp

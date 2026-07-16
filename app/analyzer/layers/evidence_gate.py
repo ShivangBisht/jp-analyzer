@@ -307,5 +307,3 @@ def analyze_integrated_alpha2(text: str, nlp, *, use_dictionary: bool = True,
     })
     return attached
 
-
-analyze = analyze_integrated_alpha2

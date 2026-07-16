@@ -386,5 +386,3 @@ def analyze_layered_alpha34(
     })
     return result
 
-
-analyze = analyze_layered_alpha34

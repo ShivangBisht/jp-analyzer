@@ -129,5 +129,3 @@ def analyze_layered(text,nlp,dictionary_evidence=None):
  r=LayeredAnalysis(text=text,morphemes=ms,particle_phrases=pps,basic_phrases=bps,entities=es,predicates=ps,arguments=args,predicate_relations=rels,clauses=cls,grammar_matches=gs,dictionary_candidates=dcs,dictionary_evidence=des,lexical_items=ls,color_spans=cs,diagnostics=[],parser_metadata={'parser':'GiNZA','split_mode':'A','architecture':'immutable-layers','dictionary_policy':'evidence-only'})
  r.diagnostics.extend(validate(r)); return r
 
-
-analyze = analyze_layered
