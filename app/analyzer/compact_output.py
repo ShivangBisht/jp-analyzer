@@ -8,6 +8,7 @@ from .reader_projection import (
 )
 from .version import SCHEMA_VERSION
 from .reader_candidates import READER_CANDIDATE_SCHEMA_VERSION, project_reader_candidates
+from .reader_candidate_selection import select_reader_output
 
 
 def compact_analysis(
@@ -23,8 +24,10 @@ def compact_analysis(
     beyond mapping already-selected analyzer roles to display policy fields.
     """
     resolved = result.get("resolved_spans_alpha2") or []
-    reader_spans = project_reader_spans(result)
-    reader_candidates = project_reader_candidates(result)
+    evaluated_reader_candidates = project_reader_candidates(result)
+    reader_spans, reader_candidates, reader_selection = select_reader_output(
+        result, evaluated_reader_candidates
+    )
     diagnostics = result.get("diagnostics_alpha2") or []
     metadata = result.get("kwja_metadata_alpha1") or {}
     change = result.get("alpha2_change_summary") or {}
@@ -40,6 +43,7 @@ def compact_analysis(
         "resolvedSpans": resolved,
         "readerSpans": reader_spans,
         "readerCandidates": reader_candidates,
+        "readerSelection": reader_selection,
         "structure": {
             "predicates": result.get("predicates") or [],
             "clauses": result.get("clauses") or [],

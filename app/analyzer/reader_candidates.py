@@ -5,7 +5,7 @@ from .reader_candidate_generation import generate_reader_candidates
 from .reader_candidate_dictionary import evaluate_generated_reader_candidates
 from .reader_candidate_evidence import attach_reader_candidate_structural_evidence
 
-READER_CANDIDATE_SCHEMA_VERSION = "1.5"
+READER_CANDIDATE_SCHEMA_VERSION = "2.0"
 
 
 def _existing_candidates(result: dict[str, Any]) -> list[dict[str, Any]]:

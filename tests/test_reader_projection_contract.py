@@ -44,9 +44,9 @@ def main():
     validate_reader_spans(text, spans)
 
     assert compact["schemaVersion"] == "1.2"
-    assert compact["readerSpanSchemaVersion"] == "1.0"
+    assert compact["readerSpanSchemaVersion"] == "1.1"
 
-    assert compact["readerCandidateSchemaVersion"] == "1.5"
+    assert compact["readerCandidateSchemaVersion"] == "2.0"
     assert isinstance(compact["readerCandidates"], list)
     assert compact["resolvedSpans"] is result["resolved_spans_alpha2"]
     assert compact["coverage"]["readerSpansComplete"] is True

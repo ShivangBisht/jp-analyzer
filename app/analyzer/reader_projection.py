@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-READER_SPAN_SCHEMA_VERSION = "1.0"
+READER_SPAN_SCHEMA_VERSION = "1.1"
 
 FUNCTION_GRAMMAR_IDS = {
     "V_TE",
