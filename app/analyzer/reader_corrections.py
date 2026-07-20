@@ -7,7 +7,7 @@ from typing import Any
 
 DB_PATH = Path(__file__).resolve().parents[2] / "data" / "reader_corrections.sqlite3"
 _lock = threading.RLock()
-_ALLOWED_ROLES = {"lexical", "lexical-compound", "numeric-lexical", "name", "learnable-grammar", "function", "punctuation", "unresolved"}
+_ALLOWED_ROLES = {"lexical", "lexical-compound", "name", "learnable-grammar", "function", "punctuation", "unresolved"}
 _PUNCTUATION = set("、。！？!?「」『』（）()……─―～")
 
 SCHEMA = """
@@ -50,22 +50,22 @@ def validate_request(data: dict[str, Any]) -> dict[str, Any]:
     if role not in _ALLOWED_ROLES: raise ValueError("Unknown displayRole")
     lookup=data.get("knownLookupKey") or data.get("headword")
     frequency=data.get("frequencyLookupKey") or lookup
-    if role in {"lexical","lexical-compound","numeric-lexical"} and (not lookup or not frequency): raise ValueError("Lexical corrections require lookup keys")
+    if role in {"lexical","lexical-compound",} and (not lookup or not frequency): raise ValueError("Lexical corrections require lookup keys")
     if role == "learnable-grammar" and not data.get("grammarId"): raise ValueError("Grammar corrections require grammarId")
     return {**data, "sentence":text, "start":start, "end":end, "surface":surface, "displayRole":role,
             "scope":"occurrence", "knownLookupKey":lookup, "frequencyLookupKey":frequency}
 
 def corrected_span(data: dict[str, Any], correction_id: str | None=None) -> dict[str, Any]:
     role=data["displayRole"]
-    color={"lexical":"known-or-frequency","lexical-compound":"known-or-frequency","numeric-lexical":"known-or-numeric","name":"name","learnable-grammar":"grammar","function":"muted","punctuation":"neutral","unresolved":"neutral"}[role]
+    color={"lexical":"known-or-frequency","lexical-compound":"known-or-frequency","name":"name","learnable-grammar":"grammar","function":"muted","punctuation":"neutral","unresolved":"neutral"}[role]
     return {"start":data["start"],"end":data["end"],"surface":data["surface"],"displayRole":role,
-      "lexicalType": data.get("lexicalType") or ("compound" if role=="lexical-compound" else "numeric" if role=="numeric-lexical" else "term" if role=="lexical" else None),
-      "colorPolicy":color,"unknownColorPolicy":data.get("unknownColorPolicy") or ("numeric" if role=="numeric-lexical" else "frequency" if role in {"lexical","lexical-compound"} else None),
+      "lexicalType": data.get("lexicalType") or ("compound" if role=="lexical-compound" else "numeric" if role=="lexical-compound" else "term" if role=="lexical" else None),
+      "colorPolicy":color,"unknownColorPolicy":data.get("unknownColorPolicy") or ("frequency" if role in {"lexical","lexical-compound"} else None),
       "knownLookupKey":data.get("knownLookupKey"),"frequencyLookupKey":data.get("frequencyLookupKey"),
       "headword":data.get("headword"),"grammarId":data.get("grammarId"),"confidence":1.0,
-      "countsForComprehension":role in {"lexical","lexical-compound","numeric-lexical"},
-      "showInNewWords":role in {"lexical","lexical-compound","numeric-lexical"},
-      "eligibleForMining":role in {"lexical","lexical-compound","numeric-lexical","name","learnable-grammar"},
+      "countsForComprehension":role in {"lexical","lexical-compound",},
+      "showInNewWords":role in {"lexical","lexical-compound",},
+      "eligibleForMining":role in {"lexical","lexical-compound","name","learnable-grammar"},
       "sourceSpanIds":[],"sourceLayer":"user-correction","projectionStatus":"user-corrected-preview" if not correction_id else "user-corrected",
       "correctionId":correction_id,"correctionScope":"occurrence"}
 

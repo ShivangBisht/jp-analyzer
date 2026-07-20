@@ -218,12 +218,25 @@ def _from_numerals(result: dict[str, Any]) -> list[dict[str, Any]]:
         if not _range_valid(result.get("text", ""), start, end):
             continue
         surface = result["text"][start:end]
-        out.append(_record(
-            result, "numeric-lexical", start, end, "numeric-lexical", [surface],
+        candidate = _record(
+            result, "term", start, end, "lexical", [surface],
             item.get("morpheme_ids") or [item.get("id")],
-            [{"source": "numeral-expression", "detail": "existing numeric/counter composition", "confidence": item.get("confidence")}],
+            [{"source": "numeral-expression", "detail": "existing numeric/counter composition; numeric structure is evidence only", "confidence": item.get("confidence")}],
             [],
-        ))
+        )
+        candidate["features"].update({
+            "containsNumeral": True,
+            "numericExpressionSupported": True,
+            "numericEvidenceOnly": True,
+        })
+        candidate["numericEvidence"] = {
+            "sourceNumeralExpressionId": item.get("id"),
+            "valueSurface": item.get("value_surface"),
+            "counterSurface": item.get("counter_surface"),
+            "morphemeIds": list(item.get("morpheme_ids") or []),
+            "confidence": item.get("confidence"),
+        }
+        out.append(candidate)
     return out
 
 

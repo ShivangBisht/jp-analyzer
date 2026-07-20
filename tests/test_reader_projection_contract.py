@@ -46,15 +46,16 @@ def main():
     assert compact["schemaVersion"] == "1.2"
     assert compact["readerSpanSchemaVersion"] == "1.0"
 
-    assert compact["readerCandidateSchemaVersion"] == "1.4"
+    assert compact["readerCandidateSchemaVersion"] == "1.5"
     assert isinstance(compact["readerCandidates"], list)
     assert compact["resolvedSpans"] is result["resolved_spans_alpha2"]
     assert compact["coverage"]["readerSpansComplete"] is True
 
     numeric, function, grammar, lexical, te_function, punctuation = spans
-    assert numeric["displayRole"] == "numeric-lexical"
-    assert numeric["knownLookupKey"] == "二人"
-    assert numeric["unknownColorPolicy"] == "numeric"
+    assert numeric["displayRole"] == "lexical"
+    assert numeric["lexicalType"] == "term"
+    assert numeric["colorPolicy"] == "known-or-frequency"
+    assert numeric["unknownColorPolicy"] == "frequency"
     assert function["displayRole"] == "function"
     assert function["colorPolicy"] == "muted"
     assert grammar["displayRole"] == "learnable-grammar"

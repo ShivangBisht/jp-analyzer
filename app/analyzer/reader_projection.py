@@ -11,7 +11,6 @@ FUNCTION_GRAMMAR_IDS = {
 DISPLAY_ROLES = {
     "lexical",
     "lexical-compound",
-    "numeric-lexical",
     "name",
     "learnable-grammar",
     "function",
@@ -102,10 +101,10 @@ def _classification(
     if family == "numeral":
         lookup = headword or span.get("surface")
         return {
-            "displayRole": "numeric-lexical",
-            "lexicalType": "numeric",
-            "colorPolicy": "known-or-numeric",
-            "unknownColorPolicy": "numeric",
+            "displayRole": "lexical",
+            "lexicalType": "term",
+            "colorPolicy": "known-or-frequency",
+            "unknownColorPolicy": "frequency",
             "knownLookupKey": lookup,
             "frequencyLookupKey": lookup,
             "countsForComprehension": True,
@@ -190,7 +189,7 @@ def validate_reader_spans(text: str, spans: list[dict[str, Any]]) -> None:
             raise ValueError(f"readerSpans[{index}] surface does not match source")
         if role not in DISPLAY_ROLES:
             raise ValueError(f"readerSpans[{index}] has unknown displayRole {role!r}")
-        if role in {"lexical", "lexical-compound", "numeric-lexical"}:
+        if role in {"lexical", "lexical-compound",}:
             if not span.get("knownLookupKey") or not span.get("frequencyLookupKey"):
                 raise ValueError(
                     f"readerSpans[{index}] lexical span is missing lookup keys"

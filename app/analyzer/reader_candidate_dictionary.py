@@ -6,7 +6,7 @@ from typing import Any, Callable
 from .layers.dictionary import evaluate_candidate
 
 DictionaryEvaluator = Callable[[dict[str, Any], str | None], dict[str, Any]]
-LEXICAL_ROLES = {"lexical", "lexical-compound", "numeric-lexical", "name"}
+LEXICAL_ROLES = {"lexical", "lexical-compound", "name"}
 COMPLETE_HYPOTHESIS_TYPES = {"complete-final-predicate-normalization"}
 COMPONENT_HYPOTHESIS_TYPES = {"component-or-lexical-headword"}
 

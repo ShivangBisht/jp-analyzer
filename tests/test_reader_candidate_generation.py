@@ -71,7 +71,8 @@ def main():
     assert project_reader_spans(result) == before_reader
     assert all(x["selected"] is False for x in generated)
     assert any(x["surface"] == "頷いて" and x["candidateFamily"] == "inflected-lexical" for x in generated)
-    assert any(x["surface"] == "二人" and x["proposedRole"] == "numeric-lexical" for x in generated)
+    assert any(x["surface"] == "二人" and x["candidateFamily"] == "term" and x["proposedRole"] == "lexical" for x in generated)
+    assert all(x["candidateFamily"] != "numeric-lexical" and x["proposedRole"] != "numeric-lexical" for x in generated)
     compound = next(x for x in generated if x["surface"] == "出て行った" and x["candidateFamily"] == "compound-predicate")
     assert compound["conflictingEvidence"]
     assert compound["features"]["conflictingEvidenceCount"] > 0
