@@ -7,6 +7,7 @@ from .reader_projection import (
     project_reader_spans,
 )
 from .version import SCHEMA_VERSION
+from .reader_candidates import READER_CANDIDATE_SCHEMA_VERSION, project_reader_candidates
 
 
 def compact_analysis(
@@ -23,6 +24,7 @@ def compact_analysis(
     """
     resolved = result.get("resolved_spans_alpha2") or []
     reader_spans = project_reader_spans(result)
+    reader_candidates = project_reader_candidates(result)
     diagnostics = result.get("diagnostics_alpha2") or []
     metadata = result.get("kwja_metadata_alpha1") or {}
     change = result.get("alpha2_change_summary") or {}
@@ -31,11 +33,13 @@ def compact_analysis(
     return {
         "schemaVersion": SCHEMA_VERSION,
         "readerSpanSchemaVersion": READER_SPAN_SCHEMA_VERSION,
+        "readerCandidateSchemaVersion": READER_CANDIDATE_SCHEMA_VERSION,
         "analyzerVersion": analyzer_version,
         "engineVersion": result.get("version"),
         "text": text,
         "resolvedSpans": resolved,
         "readerSpans": reader_spans,
+        "readerCandidates": reader_candidates,
         "structure": {
             "predicates": result.get("predicates") or [],
             "clauses": result.get("clauses") or [],
