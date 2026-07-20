@@ -30,6 +30,75 @@ def _contained(items: list[dict[str, Any]], start: int, end: int) -> list[dict[s
     return [x for x in items if start <= x.get("start", -1) and x.get("end", -1) <= end]
 
 
+def _lookup_hypothesis(
+    text: str,
+    hypothesis_type: str,
+    *,
+    source: str,
+    source_predicate_id: str | None = None,
+    source_surface: str | None = None,
+    source_lemma: str | None = None,
+) -> dict[str, Any] | None:
+    value = str(text or "").strip()
+    if not value or any(char in PUNCTUATION for char in value):
+        return None
+    return {
+        "text": value,
+        "type": hypothesis_type,
+        "status": "generated",
+        "dictionaryStatus": "not-evaluated",
+        "generationSource": source,
+        "sourcePredicateId": source_predicate_id,
+        "sourceSurface": source_surface,
+        "sourceLemma": source_lemma,
+    }
+
+
+def _dedupe_lookup_hypotheses(items: list[dict[str, Any] | None]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    for item in items:
+        if not item:
+            continue
+        key = (item["text"], item["type"])
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(item)
+    return out
+
+
+def _final_predicate_lookup_hypothesis(
+    source_text: str,
+    candidate_start: int,
+    final_predicate: dict[str, Any],
+) -> dict[str, Any] | None:
+    pred_start = final_predicate.get("start")
+    pred_end = final_predicate.get("end")
+    lemma = str(final_predicate.get("headword") or "").strip()
+    if not (
+        isinstance(candidate_start, int)
+        and isinstance(pred_start, int)
+        and isinstance(pred_end, int)
+        and 0 <= candidate_start <= pred_start < pred_end <= len(source_text)
+        and lemma
+    ):
+        return None
+    # Preserve the actual source prefix exactly and normalize only the final
+    # predicate. No connective is inserted, no component is reordered, and no
+    # earlier source character is rewritten.
+    prefix = source_text[candidate_start:pred_start]
+    hypothesis = prefix + lemma
+    return _lookup_hypothesis(
+        hypothesis,
+        "complete-final-predicate-normalization",
+        source="candidate-final-predicate",
+        source_predicate_id=final_predicate.get("id"),
+        source_surface=source_text[pred_start:pred_end],
+        source_lemma=lemma,
+    )
+
+
 def _kwja_support(result: dict[str, Any], start: int, end: int) -> dict[str, Any]:
     phrases = result.get("kwja_basic_phrases_alpha1") or []
     predicates = result.get("kwja_predicate_phrases_alpha1") or []
@@ -63,6 +132,7 @@ def _record(
     result: dict[str, Any], family: str, start: int, end: int, role: str,
     lookup_keys: list[str], component_ids: list[str], evidence: list[dict[str, Any]],
     conflicts: list[dict[str, Any]], grammar_id: str | None = None,
+    lookup_hypotheses: list[dict[str, Any] | None] | None = None,
 ) -> dict[str, Any]:
     text = result.get("text", "")
     hard: list[str] = []
@@ -91,6 +161,18 @@ def _record(
         "surface": surface,
         "proposedRole": role,
         "possibleLookupKeys": list(dict.fromkeys(x for x in lookup_keys if x)),
+        "lookupHypotheses": _dedupe_lookup_hypotheses(
+            list(lookup_hypotheses or [])
+            + [
+                _lookup_hypothesis(
+                    key,
+                    "component-or-lexical-headword",
+                    source="candidate-component-headword",
+                )
+                for key in lookup_keys
+                if key
+            ]
+        ),
         "preferredLookupKey": None,
         "grammarId": grammar_id,
         "componentIds": list(dict.fromkeys(x for x in component_ids if x)),
@@ -284,6 +366,7 @@ def _from_predicate_relations(result: dict[str, Any]) -> list[dict[str, Any]]:
                 "confidence": relation.get("confidence"),
             })
 
+        complete_hypothesis = _final_predicate_lookup_hypothesis(text, start, second)
         candidate = _record(
             result,
             "compound-predicate",
@@ -294,6 +377,11 @@ def _from_predicate_relations(result: dict[str, Any]) -> list[dict[str, Any]]:
             [first.get("id"), second.get("id"), relation.get("id")],
             evidence,
             conflicts,
+            lookup_hypotheses=[complete_hypothesis],
+        )
+        candidate["features"]["completeLookupHypothesisGenerated"] = bool(complete_hypothesis)
+        candidate["features"]["completeLookupHypothesisStatus"] = (
+            "not-evaluated" if complete_hypothesis else "not-generated"
         )
         candidate["features"]["completeLookupKeyCorroborated"] = False
         candidate["features"]["containsInterveningArgumentMaterial"] = False

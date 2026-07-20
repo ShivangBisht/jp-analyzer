@@ -3,7 +3,7 @@ from typing import Any
 
 from .reader_candidate_generation import generate_reader_candidates
 
-READER_CANDIDATE_SCHEMA_VERSION = "1.1"
+READER_CANDIDATE_SCHEMA_VERSION = "1.2"
 
 
 def _existing_candidates(result: dict[str, Any]) -> list[dict[str, Any]]:
