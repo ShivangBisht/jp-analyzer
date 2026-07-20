@@ -2,8 +2,9 @@ from __future__ import annotations
 from typing import Any
 
 from .reader_candidate_generation import generate_reader_candidates
+from .reader_candidate_dictionary import evaluate_generated_reader_candidates
 
-READER_CANDIDATE_SCHEMA_VERSION = "1.2"
+READER_CANDIDATE_SCHEMA_VERSION = "1.3"
 
 
 def _existing_candidates(result: dict[str, Any]) -> list[dict[str, Any]]:
@@ -62,4 +63,5 @@ def project_reader_candidates(result: dict[str, Any]) -> list[dict[str, Any]]:
     """Expose existing and generated alternatives without changing readerSpans."""
     existing = _existing_candidates(result)
     generated = generate_reader_candidates(result)
-    return existing + generated
+    evaluated = evaluate_generated_reader_candidates(result, generated)
+    return existing + evaluated
