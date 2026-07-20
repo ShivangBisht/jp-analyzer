@@ -118,6 +118,8 @@ def _from_complete_grammar(result: dict[str, Any]) -> list[dict[str, Any]]:
         gid = item.get("grammar_id")
         if not _range_valid(result.get("text", ""), start, end) or not gid:
             continue
+        if gid in INFLECTION_GRAMMAR_IDS:
+            continue
         out.append(_record(
             result, "complete-grammar", start, end, "learnable-grammar", [],
             item.get("morpheme_ids") or [item.get("id")],
@@ -192,52 +194,111 @@ def _from_inflected_predicates(result: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _from_predicate_relations(result: dict[str, Any]) -> list[dict[str, Any]]:
+    """Generate only contiguous verbal compound alternatives.
+
+    This function does not claim that a candidate is a word. It only preserves a
+    structurally viable alternative for later evidence ranking. Ambiguous VてV
+    sequences retain conflict evidence and remain unselected.
+    """
     out = []
     text = result.get("text", "")
     predicates = result.get("predicates") or []
     by_id = {x.get("id"): x for x in predicates if x.get("id")}
     relations = result.get("predicate_relations_alpha31") or result.get("predicate_relations") or []
-    morphemes = result.get("morphemes") or []
+    morphemes = sorted(result.get("morphemes") or [], key=lambda x: (x.get("start", 0), x.get("end", 0)))
+
+    def predicate_is_verbal(predicate: dict[str, Any]) -> bool:
+        ids = set(predicate.get("morpheme_ids") or [])
+        heads = [
+            item for item in morphemes
+            if item.get("id") == predicate.get("head_morpheme_id")
+            or item.get("id") in ids
+            or (item.get("start") == predicate.get("start") and item.get("end") == predicate.get("end"))
+        ]
+        return any(item.get("pos") == "VERB" for item in heads)
 
     for relation in relations:
         left = by_id.get(relation.get("from_predicate_id"))
         right = by_id.get(relation.get("to_predicate_id"))
-        if not left or not right:
+        if not left or not right or not predicate_is_verbal(left) or not predicate_is_verbal(right):
             continue
+
         ordered = sorted([left, right], key=lambda x: (x.get("start", 0), x.get("end", 0)))
-        start = ordered[0].get("start")
-        end = ordered[-1].get("end")
-        if not _range_valid(text, start, end):
+        first, second = ordered
+        start, second_end = first.get("start"), second.get("end")
+        if not _range_valid(text, start, second_end):
             continue
-        # Include contiguous function/inflection material between and immediately after predicates.
-        contained = _contained(morphemes, start, end)
-        if not contained:
+
+        between = [
+            item for item in morphemes
+            if first.get("end", -1) <= item.get("start", -1)
+            and item.get("end", -1) <= second.get("start", -1)
+        ]
+        gap_surface = text[first.get("end", 0):second.get("start", 0)]
+        marker = relation.get("marker_range") or {}
+        marker_surface = marker.get("surface")
+
+        # Contiguous lexical compounds may have no gap (読み終わる), or only a
+        # visible conjunctive marker (出て行く). Arguments and modifiers block
+        # a lexical-compound proposal.
+        direct_compound = first.get("end") == second.get("start")
+        conjunctive_compound = gap_surface in {"て", "で"} and marker_surface in {"て", "で"}
+        if not (direct_compound or conjunctive_compound):
             continue
-        cursor = end
-        trailing = sorted([x for x in morphemes if x.get("start") == cursor], key=lambda x: x.get("end", 0))
+        if any(item.get("pos") in {"NOUN", "PROPN", "PRON", "NUM", "DET"} for item in between):
+            continue
+        if _crosses_punctuation(text, start, second_end):
+            continue
+
+        end = second_end
+        trailing = [item for item in morphemes if item.get("start") == end]
         while trailing and trailing[0].get("pos") == "AUX":
-            cursor = trailing[0]["end"]
-            trailing = sorted([x for x in morphemes if x.get("start") == cursor], key=lambda x: x.get("end", 0))
-        end = cursor
-        left_head = ordered[0].get("headword")
-        right_head = ordered[1].get("headword")
-        possible = []
-        if left_head and right_head:
-            possible.append(f"{text[ordered[0]['start']:ordered[0]['end']]}て{right_head}")
-        possible.extend(x for x in [left_head, right_head] if x)
+            end = trailing[0]["end"]
+            trailing = [item for item in morphemes if item.get("start") == end]
+        if _crosses_punctuation(text, start, end):
+            continue
+
+        component_keys = list(dict.fromkeys(
+            value for value in [first.get("headword"), second.get("headword")] if value
+        ))
         conflicts = [{
             "source": "predicate-relation",
-            "detail": relation.get("semantic_relation") or relation.get("relation") or "possible independent sequential actions",
+            "detail": relation.get("semantic_relation") or relation.get("relation") or "compound-vs-independent-predicates",
             "confidence": relation.get("confidence"),
         }]
-        marker = relation.get("marker_range") or {}
-        evidence = [{"source": "predicate-link", "detail": relation.get("id"), "confidence": relation.get("confidence")}]
-        if marker:
-            evidence.append({"source": "visible-connective", "detail": marker.get("surface"), "confidence": relation.get("confidence")})
-        out.append(_record(
-            result, "compound-predicate", start, end, "lexical-compound", possible,
-            [left.get("id"), right.get("id"), relation.get("id")], evidence, conflicts,
-        ))
+        evidence = [{
+            "source": "predicate-link",
+            "detail": relation.get("id"),
+            "confidence": relation.get("confidence"),
+        }]
+        if marker_surface:
+            evidence.append({
+                "source": "visible-connective",
+                "detail": marker_surface,
+                "confidence": relation.get("confidence"),
+            })
+        if direct_compound:
+            evidence.append({
+                "source": "contiguous-verbal-predicates",
+                "detail": "no intervening source material",
+                "confidence": relation.get("confidence"),
+            })
+
+        candidate = _record(
+            result,
+            "compound-predicate",
+            start,
+            end,
+            "lexical-compound",
+            component_keys,
+            [first.get("id"), second.get("id"), relation.get("id")],
+            evidence,
+            conflicts,
+        )
+        candidate["features"]["completeLookupKeyCorroborated"] = False
+        candidate["features"]["containsInterveningArgumentMaterial"] = False
+        candidate["features"]["verbalPredicatePair"] = True
+        out.append(candidate)
     return out
 
 
@@ -263,4 +324,12 @@ def generate_reader_candidates(result: dict[str, Any]) -> list[dict[str, Any]]:
         existing["componentIds"] = list(dict.fromkeys(existing.get("componentIds", []) + item.get("componentIds", [])))
         existing["features"]["positiveEvidenceCount"] = len(existing["evidence"])
         existing["features"]["conflictingEvidenceCount"] = len(existing["conflictingEvidence"])
-    return sorted(deduped.values(), key=lambda x: (x.get("start", 0), x.get("end", 0), x.get("candidateFamily", "")))
+    public = []
+    for item in deduped.values():
+        if item.get("hardRejectionReasons"):
+            continue
+        item["rankingEligible"] = True
+        item["abstentionEligible"] = True
+        item["selectionPolicy"] = "evidence-ranking-with-abstention"
+        public.append(item)
+    return sorted(public, key=lambda x: (x.get("start", 0), x.get("end", 0), x.get("candidateFamily", "")))
