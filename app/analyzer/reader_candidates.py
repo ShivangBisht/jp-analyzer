@@ -3,8 +3,9 @@ from typing import Any
 
 from .reader_candidate_generation import generate_reader_candidates
 from .reader_candidate_dictionary import evaluate_generated_reader_candidates
+from .reader_candidate_evidence import attach_reader_candidate_structural_evidence
 
-READER_CANDIDATE_SCHEMA_VERSION = "1.3"
+READER_CANDIDATE_SCHEMA_VERSION = "1.4"
 
 
 def _existing_candidates(result: dict[str, Any]) -> list[dict[str, Any]]:
@@ -64,4 +65,5 @@ def project_reader_candidates(result: dict[str, Any]) -> list[dict[str, Any]]:
     existing = _existing_candidates(result)
     generated = generate_reader_candidates(result)
     evaluated = evaluate_generated_reader_candidates(result, generated)
-    return existing + evaluated
+    combined = existing + evaluated
+    return attach_reader_candidate_structural_evidence(result, combined)
