@@ -9,6 +9,7 @@ from .reader_projection import (
 from .version import SCHEMA_VERSION
 from .reader_candidates import READER_CANDIDATE_SCHEMA_VERSION, project_reader_candidates
 from .reader_candidate_selection import select_reader_output
+from .reader_corrections import apply_active_corrections
 
 
 def compact_analysis(
@@ -28,6 +29,12 @@ def compact_analysis(
     reader_spans, reader_candidates, reader_selection = select_reader_output(
         result, evaluated_reader_candidates
     )
+    reader_spans, applied_corrections = apply_active_corrections(
+        result.get("text", ""), reader_spans
+    )
+    reader_selection = dict(reader_selection)
+    reader_selection["appliedCorrections"] = applied_corrections
+    reader_selection["appliedCorrectionCount"] = len(applied_corrections)
     diagnostics = result.get("diagnostics_alpha2") or []
     metadata = result.get("kwja_metadata_alpha1") or {}
     change = result.get("alpha2_change_summary") or {}
