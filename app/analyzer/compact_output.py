@@ -9,7 +9,7 @@ from .reader_projection import (
 from .version import SCHEMA_VERSION
 from .reader_candidates import READER_CANDIDATE_SCHEMA_VERSION, project_reader_candidates
 from .reader_candidate_selection import select_reader_output
-from .reader_corrections import apply_active_corrections
+from .reader_corrections import apply_active_corrections, correction_revision
 
 
 def compact_analysis(
@@ -45,6 +45,7 @@ def compact_analysis(
         "readerSpanSchemaVersion": READER_SPAN_SCHEMA_VERSION,
         "readerCandidateSchemaVersion": READER_CANDIDATE_SCHEMA_VERSION,
         "analyzerVersion": analyzer_version,
+        "correctionRevision": correction_revision(),
         "engineVersion": result.get("version"),
         "text": text,
         "resolvedSpans": resolved,

@@ -401,6 +401,34 @@ def _row_to_derived(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+
+def correction_revision() -> str:
+    """Return a deterministic revision for the active correction set.
+
+    The revision changes when an active correction is added, replaced, or
+    deactivated. It is independent of SQLite row order and database timestamps
+    that do not affect reader output.
+    """
+    import hashlib
+    import json
+
+    active = []
+    for record in list_corrections(include_inactive=False):
+        active.append({
+            "correctionId": record.get("correctionId"),
+            "sentenceFingerprint": record.get("sentenceFingerprint"),
+            "start": record.get("start"),
+            "end": record.get("end"),
+            "surface": record.get("surface"),
+            "action": record.get("action"),
+            "displayRole": record.get("displayRole"),
+            "scope": record.get("scope"),
+            "replacementReaderSpans": record.get("replacementReaderSpans") or [],
+        })
+    active.sort(key=lambda item: str(item.get("correctionId") or ""))
+    payload = json.dumps(active, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
 def apply_active_corrections(
     text: str,
     baseline: list[dict[str, Any]],
