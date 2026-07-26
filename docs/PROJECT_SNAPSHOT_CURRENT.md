@@ -1,91 +1,259 @@
 # Project Snapshot – Japanese Novel Mining App
 
-**Snapshot date:** 24 July 2026, IST  
-**JP Analyzer:** `main` at `0b00fbd5ae1bdb1106a5c16199f3c9b862315fdf`  
-**Novel Audio Miner:** `feature/jp-analyzer-integration` at `2d2569771cb44ba28f794a82e4e047adfc7051ac`  
-**Canonical location:** `D:\Mining\JP analyzer\docs\PROJECT_SNAPSHOT_CURRENT.md`  
-**Status:** This snapshot supersedes all earlier project snapshots. It was generated from the complete current tracked source exports, current Git metadata, live analyzer health/OpenAPI output, dictionary status, and current test/build results.
+**Snapshot date:** 26 July 2026, IST  
+**Canonical repository location:** `D:\Mining\JP analyzer\docs\PROJECT_SNAPSHOT_CURRENT.md`  
+**Verified source baseline used for this snapshot:**  
+- **JP Analyzer:** `main` at `0b00fbd5ae1bdb1106a5c16199f3c9b862315fdf` (`Expose active correction revision`)  
+- **Novel Audio Miner:** `feature/jp-analyzer-integration` at `2d2569771cb44ba28f794a82e4e047adfc7051ac`  
 
-> **Working-tree note:** Novel Audio Miner was clean. JP Analyzer had one untracked local utility, `direct_analyzer_timing.py`; it is embedded below for completeness but is not part of commit `0b00fbd`. Runtime SQLite contents are intentionally not embedded.
+**Current roadmap position:** **Phase 7 — Dictionary Management**. Phases 1–6 are complete. Kuromoji retirement, originally Phase 11, was completed early during Phase 5.2E.  
+
+**Provenance:** This revision combines (1) the complete current repository/source exports and runtime/test evidence already embedded in the previous snapshot, and (2) the recovered implementation history from the earlier chat, including the detailed Phase 3–5 migration sequence, exact design boundaries, correction-aware cache work, tokenizer retirement, and Debug Report v2 decisions.  
+
+> **Important machine-state note:** The commits above are the last fully verified exported source baseline from the work computer. The home computer must be synchronized to these Git branches before development resumes. Local runtime databases and browser data are intentionally not embedded. The database file paths, sizes and hashes are recorded later in this snapshot.
+
+> **Working-tree note at export time:** Novel Audio Miner was clean. JP Analyzer had one untracked local utility, `direct_analyzer_timing.py`; it is embedded below for reference but was not part of commit `0b00fbd`.
 
 ## 1. Purpose & Goal
 
-The project is a local Japanese EPUB reading and mining application. Its finished form should load Japanese novels, preserve spine order, chapters, illustrations, original sentence text and ruby/furigana, analyze each sentence into coherent learner-facing units, colour those units from known-word and frequency state, calculate comprehension, expose New Words, preserve Yomitan lookup, and support reliable Anki mining with existing Nadeshiko and VoiceVox enrichment paths.
+The project is a local Japanese EPUB reader and mining application designed for sustained Japanese novel reading. The completed application should:
 
-The intended ownership model is:
+- Load Japanese EPUBs while preserving spine order, chapters, illustrations, exact source text, HTML, ruby/furigana, and reader progress.
+- Analyze each sentence into coherent learner-facing units rather than exposing raw tokenizer fragments.
+- Colour lexical items from known-word and frequency state while visibly distinguishing function material, learnable grammar, names, punctuation, and unresolved/neutral output.
+- Calculate comprehension and New Words from the same authoritative learner units shown in the reader.
+- Preserve exact source offsets for selection, correction, mining and diagnostics.
+- Support reliable Anki mining through the existing AnkiConnect workflow, with Nadeshiko enrichment and VoiceVox fallback where configured.
+- Preserve Yomitan-compatible browser text selection and popup lookup without making Yomitan responsible for sentence structure.
+- Allow exact structural teaching corrections to be previewed, saved, applied, audited, deactivated and eventually used as evidence for offline ranker improvement.
+- Operate efficiently through correction-aware caching, adjacent-scene prefetch and a future unified launcher.
 
-- **JP Analyzer** owns linguistic boundaries, reader roles, compounds, grammar identity, names, lookup identities, candidate generation/evaluation, conservative abstention, and structural teaching corrections.
-- **Novel Audio Miner** owns EPUB parsing, exact-offset rendering, known/frequency resolution, navigation, illustrations, audio, comprehension/New Words presentation, selection, diagnostics, dictionary synchronization UI, and mining workflow.
-- **Yomitan** owns interactive dictionary lookup, reading/definition choice, and the user-facing dictionary/Anki workflow.
+### Final ownership model
 
-The frontend must consume authoritative `readerSpans` mechanically. It must not merge or split them, infer linguistic roles, invent lookup identities, or use surface-search fallback when exact analyzer offsets exist. Invalid analyzer output must render neutrally and produce diagnostics rather than guesses.
+- **JP Analyzer** is the sole linguistic authority. It owns sentence-internal span boundaries, reader roles, lexical/compound identity, grammar identity, function material, names, lookup identities, candidate generation, dictionary and KWJA evidence, conservative abstention, learning/mining eligibility, and structural corrections.
+- **Novel Audio Miner** owns EPUB extraction, scene navigation, exact-range rendering, known/frequency resolution, presentation, comprehension aggregation, New Words UI, selection UI, diagnostics, dictionary synchronization controls, Anki actions, audio and enrichment integrations.
+- **Yomitan** remains an independent interactive dictionary lookup tool over selectable reader text. It does not define reader spans or application learning eligibility.
+
+### Non-negotiable integration invariants
+
+1. `readerSpans` is the authoritative frontend contract.
+2. The frontend must not merge, split, reclassify or repair analyzer spans.
+3. Analyzer offsets and surfaces must exactly reconstruct the requested sentence.
+4. `knownLookupKey`, `frequencyLookupKey`, `countsForComprehension`, `showInNewWords` and `eligibleForMining` must be consumed as analyzer-owned fields.
+5. Invalid analyzer output or analyzer unavailability produces readable neutral text and unavailable learning/mining state—never a hidden tokenizer fallback.
+6. Dictionary absence is evidence absence, not automatic rejection.
+7. Ambiguity is handled conservatively through abstention or neutral output rather than guessing.
+8. Teaching corrections are scoped data. An exact occurrence correction must not silently become a global linguistic rule.
 
 ## 2. Where We Are Now (Current Phase)
 
 ### Exact current phase
 
-**Phase 7 — Dictionary management.** Persistent analyzer dictionary storage is already operational; current work should refine and verify the settings-driven synchronization and management lifecycle rather than reimplement persistence.
+**Phase 7 — Dictionary Management.** Persistent analyzer dictionary storage is already operational. The next work is to make the dictionary lifecycle clean, settings-driven, identity-aware, atomically safe and testable—not to rebuild the dictionary backend from scratch.
 
-### Consolidation and roadmap progress
+### Canonical roadmap status
 
-- **Phase 1 — Ownership, consolidation, and safe baseline: complete.**
-- **Phase 2 — Authoritative reader-facing analysis: complete.** `readerSpans`, reader candidates, conservative selection, lookup hypotheses, structural evidence, exact corrections, and correction revision are active.
-- **Phase 3 — Frontend integration: complete.** The current branch renders validated authoritative reader spans, uses analyzer-supplied lookup identities, supports colour-source ownership, maintains correction-aware cache identity, metadata leases, and adjacent-scene prefetch.
-- **Phase 4 — Presentation refinement: complete.** Analyzer roles drive lexical, function, grammar, name, punctuation, unresolved, known, and frequency presentation.
-- **Phase 5 — Comprehension, New Words, and mining eligibility: complete.** JP Analyzer is the active learning and mining-eligibility source; offset-aware selection/mining is active.
-- **Phase 6 — Simplified Debug Mode: complete.** Debug report schema v2, diagnostic IDs, analyzer/cache/prefetch/learning/mining/EPUB sections, and optional full EPUB parser inventory are implemented.
-- **Original Phase 11 — Retire Kuromoji: completed early in Phase 5.2E.** Kuromoji and the legacy tokenizer model are removed from production and from dependencies; Plain Text remains a presentation mode using JP Analyzer structure.
+- **Phase 1 — Ownership, consolidation and safe baseline: complete.**
+- **Phase 2 — Authoritative reader-facing analysis and structural teaching backend: complete.**
+- **Phase 3 — Make JP Analyzer the primary colouring source: complete.**
+  - **3A:** direct, strict consumption of authoritative `readerSpans`.
+  - **3B:** explicit source modes were introduced (`JP Analyzer`, `Legacy Kuromoji`, `Plain text`).
+  - **3C:** JP Analyzer became the default.
+  - **3D.1:** correction-aware validated cache identity was added.
+  - **3D.2:** current/next/previous text-scene analysis, adjacent prefetch and immediate prefetched-cache activation were added.
+- **Phase 4 — Presentation refinement: complete.** Function and grammar presentation were separated; learnable grammar now has a visible dedicated colour; neutral states are explicit.
+- **Phase 5 — Analyzer-owned comprehension, New Words, selection and mining: complete.**
+  - **5.1:** read-only analyzer learning-model shadow comparison.
+  - **5.2A:** analyzer comprehension and New Words activated.
+  - **5.2B:** offset-aware analyzer mining activated.
+  - **5.2C:** unified analyzer selection/action ownership replaced legacy “learning word” approval.
+  - **5.2D:** EPUB parsing became linguistically neutral and legacy tokenization was isolated.
+  - **5.2E:** Kuromoji/tokenizer ownership was retired completely and the visible Debug UI was simplified.
+- **Phase 6 — Simplified Debug Mode and Debug Report v2: complete.** The UI exposes a compact Debug Report section; the export contains structured analyzer, cache, prefetch, presentation, learning, selection, mining and EPUB evidence. Full EPUB parser inventory is optional.
+- **Phase 7 — Dictionary Management: current.**
+- **Phase 8 — Teaching frontend: pending.**
+- **Phase 9 — Correction data and ranker tuning: pending.**
+- **Phase 10 — One-application startup: pending.**
+- **Phase 11 — Retire Kuromoji: completed early in Phase 5.2E.**
+- **Phase 12 — Reading-driven maintenance: ongoing/final operating phase.**
 
-### Current verified runtime
+### Recovered implementation history from the earlier chat
+
+This ledger records the exact intent of the work that occurred after the older 20 July snapshot. A future AI must not repeat these migrations.
+
+#### Phase 2 completion and the first permanent teaching example
+
+The validated structural-teaching lifecycle used the sentence:
+
+```text
+少年が走ってきた。
+```
+
+Baseline reader partition:
+
+```text
+少年 | が | 走っ | てきた | 。
+```
+
+Preferred exact occurrence:
+
+```text
+少年 | が | 走ってきた | 。
+```
+
+Teaching metadata:
+
+```text
+Action: show-as-one-unit
+Role: learnable-grammar
+Grammar: TE_KURU
+Host lookup: 走る
+Scope: exact occurrence
+```
+
+No global `てきた` rule was added. The correction database is local/Git-ignored. The backend later gained an authoritative SHA-256 `correctionRevision`, exposed by `/health` and `/analyze`, so caches invalidate when the active correction set changes.
+
+#### Phase 3A — authoritative `readerSpans`
+
+Novel Audio Miner was changed from adapting `resolvedSpans` to strictly validating and rendering `compact.readerSpans`. Validation includes exact requested/returned sentence equality, supported schema, integer/in-range offsets, exact source surfaces, ordering, no gaps/overlaps, final coverage and exact reconstruction. No string-search offset repair is allowed.
+
+#### Phase 3B/3C — explicit source modes and default ownership
+
+The UI initially exposed `JP Analyzer`, `Legacy Kuromoji` and `Plain text`. Analyzer failure in JP Analyzer mode produced neutral text, not a silent Kuromoji fallback. After visual validation, JP Analyzer became the default for books without a saved preference, while explicit saved preferences were preserved.
+
+#### Phase 3D — cache and background analysis
+
+Cache identity was made correction-aware:
+
+```text
+cache schema + sentence SHA-256 + analyzer version + reader-span schema + correction revision
+```
+
+Every cached record is revalidated through the authoritative reader-span adapter. Memory and persistent caches are used; stale or corrupt records are rejected. Adjacent text scenes are prefetched in the order current → next → previous, skipping illustrations. Duplicate/in-flight requests are reused. A short metadata lease and lease renewal after successful prefetch allow immediate colour activation while health metadata is revalidated in parallel.
+
+A direct timing benchmark proved analyzer slowdown on the work laptop was power-management related, not a pipeline regression:
+
+```text
+Battery median: approximately 21.76 s
+Plugged-in median: approximately 10.00 s
+```
+
+#### Phase 4 — presentation policy
+
+Frontend presentation was separated from linguistic ownership:
+
+```text
+lexical / lexical-compound → known or frequency class
+function                   → muted function class
+learnable-grammar          → dedicated visible grammar class
+name                       → name class
+punctuation                → neutral
+unresolved                 → subdued neutral
+```
+
+The frontend still does not change analyzer boundaries or roles.
+
+#### Phase 5 — learning, selection, mining and tokenizer retirement
+
+The analyzer learning model first ran in shadow mode, then became authoritative for comprehension and New Words. Selection and mining were redesigned around a structured `selectedReaderContext` rather than one overloaded `selectedText` string. Partial selection inside one eligible analyzer span resolves to the complete span; cross-span selection is rejected; action permissions are field-specific (`knownLookupKey` for Mark Known, `eligibleForMining` for mining).
+
+The old app contradiction—correctly coloured analyzer compounds being rejected as “not a learning word”—was traced to legacy tokenizer arrays and removed. EPUB parsing was made linguistically neutral. Kuromoji loading, full-book tokenization, legacy scene models, legacy source mode, legacy learning/mining ownership and tokenizer comparison clutter were retired. Plain Text remains only a presentation choice over JP Analyzer structure.
+
+#### Phase 6 — Debug Report v2
+
+The large visible analyzer/dictionary/tokenizer panels were replaced by one compact Debug Report UI. Export schema v2 records application/book/reader context, complete `readerSpans`, `readerSelection`, applied corrections, contract validation, cache/metadata lease, prefetch, presentation classes, comprehension, New Words, selected reader context, action state, mining/enrichment status and EPUB source context. The `Include all EPUB parser data` checkbox was verified: a checked export records `fullParserInventoryIncluded: true` and includes `epub.fullInventory`. Empty reader selection fields are unrelated and are not a checkbox defect.
+
+### Verified implementation checkpoints from the recovered chat
+
+These milestones are retained for audit/recovery. The latest source baseline remains the commits stated at the top of this snapshot.
+
+#### JP Analyzer milestones
+
+- `be3994e` — establish authoritative reader span contract.
+- `bbc30eb` — regression coverage for reader spans.
+- `5076924` — reader candidate schema and correction backend foundation.
+- `7c830b5`, `8078f8b` — evidence-based candidate generation.
+- `5bc0e81` — candidate-generation safeguards.
+- `ad17a33` — safe lookup hypotheses.
+- `1abdf43` — candidate-specific dictionary evaluation.
+- `9681082` — candidate-specific structural evidence.
+- `4568e1b` — treat number expressions as ordinary reader terms.
+- `fcb73a4` — conservative evidence gates with abstention.
+- `032182a` — exact structural teaching corrections.
+- `0b00fbd` — expose active correction revision.
+
+#### Novel Audio Miner milestones
+
+- `f07f6bc` — initial JP Analyzer diagnostic integration.
+- `2928589` — active-scene analyzer shadow mode.
+- `b113af2` — shadow reader comparison.
+- `34e8de8` — safe visual colour preview.
+- `116d961` — define analyzer integration ownership.
+- `3927ce0` — render authoritative JP Analyzer reader spans.
+- `7e0a9ac` — explicit persistent colour-source modes.
+- `8898042` — make JP Analyzer the default source.
+- `6e724e7` — correction-aware validated analyzer cache.
+- `517e51e` — prefetch adjacent analyzer scenes.
+- `82ebdb9` — activate prefetched analyzer cache immediately.
+- `a385a73` — refine analyzer span presentation.
+- `556b430` — compare analyzer learning model in shadow mode.
+- `6c1b066` — renew analyzer metadata lease after prefetch.
+- `1c53b20` — activate analyzer comprehension and New Words.
+- `4f3dfd8` — offset-aware analyzer mining checkpoint.
+- `dc21a65` — unified analyzer selection/action ownership checkpoint.
+- `ccce5c3` — lazy legacy tokenizer isolation checkpoint.
+- Later commits completed tokenizer retirement, compact Debug UI and Debug Report v2; the verified final exported branch head is `2d2569771cb44ba28f794a82e4e047adfc7051ac`.
+
+### Current verified runtime and data
 
 - Analyzer version: `11.9.0-correction-aware-cache-contract`
 - Compact schema: `1.2`
 - Reader span schema: `1.1`
+- Reader candidate schema: `2.0`
 - Engine contract: `9.0.0-alpha2.2-evidence-gated-decision`
-- Correction revision: `4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945`
 - GiNZA model: `ja_ginza`
 - KWJA: available, base model, executable `D:\Mining\KWJA evaluator\.venv\Scripts\kwja.exe`
-- Dictionary: ready, 4,223,665 entries across 24 dictionaries
-- Dictionary types: {'expression': 55377, 'grammar': 5411, 'name': 667480, 'term': 3495397}
-- Persistent database: `D:\Mining\JP analyzer\data\phase8_analysis_lexicon.sqlite3`
-- User confirmation: the analyzer dictionary remains available in the current persistent database.
-- User clarification: the earlier tick referred to **Include all EPUB parser data**. The exported reports correctly recorded `fullParserInventoryIncluded: true`; this is resolved and is not a bug.
+- Dictionary: ready, **4,223,665 entries across 24 dictionaries**
+- Dictionary types: expression 55,377; grammar 5,411; name 667,480; term 3,495,397
+- Persistent dictionary database: `D:\Mining\JP analyzer\data\phase8_analysis_lexicon.sqlite3`
+- Correction database: `D:\Mining\JP analyzer\data\reader_corrections.sqlite3`
+- User confirmation: the analyzer dictionary remains available persistently in the database.
+- User clarification: the tick discussed during report validation was `Include all EPUB parser data`; checked exports correctly include `epub.fullInventory`.
 
-### Remaining Phase 7 tasks
+> **Correction-revision caution:** The correction revision is derived from the active correction set. An empty active set has a deterministic revision. A home or work computer may show a different revision if the local Git-ignored correction database differs. The snapshot records the exported runtime but does not embed private correction rows.
+
+### Remaining Phase 7 work
 
 1. Rename historical `Phase8DictionarySyncPanel` / `phase8DictionarySync` identifiers to phase-neutral dictionary-management names without changing behavior.
-2. Make dictionary lifecycle clearly settings-driven: status, initial sync, manual resync, progress, cancellation, clear, and recovery.
-3. Avoid unnecessary full resynchronization during ordinary reading; compare frontend dictionary snapshot identity with analyzer status before syncing.
-4. Surface entry count, dictionary count, type counts, last sync ID, database path, and error state in settings and debug report.
-5. Strengthen atomic sync behavior for interrupted uploads, stale staging data, validation of expected versus received entries, and preservation of the last valid live lexicon on failure.
-6. Add dedicated automated coverage for dictionary persistence/restart, synchronization identity, cancellation, retry, cache clear, and mismatch recovery.
-7. Keep Yomitan dictionary management independent and avoid introducing a competing dictionary UI.
-
-### Remaining original roadmap
-
-- **Phase 8 — Teaching frontend:** exact range selection, inspect partition, preview/save/deactivate corrections, and actions for one unit, split, vocabulary, grammar, function, name, neutral, and undo.
-- **Phase 9 — Correction data and ranker tuning:** collect accepted/rejected candidates and evidence snapshots; exact corrections apply immediately, global changes only after offline validation.
-- **Phase 10 — One-application startup:** one launcher starts analyzer, locates KWJA, opens dictionaries, starts frontend, checks health, and shuts down children cleanly.
-- **Phase 12 — Reading-driven maintenance:** classify findings as teaching correction, analyzer bug, dictionary gap, EPUB issue, or display-policy issue.
-- **Phase 11 is no longer pending:** Kuromoji retirement has already been completed.
+2. Make dictionary lifecycle clearly settings-driven: status, initial sync, manual resync, progress, cancellation, clear and recovery.
+3. Compare frontend dictionary snapshot identity with analyzer status so ordinary reading does not trigger unnecessary full resynchronization.
+4. Surface entry count, dictionary count, type counts, last sync ID, database path, readiness and error state in Settings and Debug Report.
+5. Strengthen sync atomicity. Interrupted or incomplete staging must never replace the last valid live lexicon.
+6. Validate `expectedEntries` against received/staged/live counts before promotion.
+7. Add dedicated automated tests for persistence after restart, identity matching, cancellation, retry, clear, interrupted sync and mismatch recovery.
+8. Audit the small duplicate `app/data/phase8_analysis_lexicon.sqlite3`; the active runtime points to the large root `data/` database.
+9. Keep Yomitan dictionary management independent; do not create a competing user-facing lookup dictionary manager in Novel Audio Miner.
 
 ### Known issues and unfinished items
 
-- JP Analyzer contains untracked `direct_analyzer_timing.py`; decide whether to commit it as an intentional performance utility or remove it before treating the analyzer working tree as clean.
-- Two dictionary database files exist: the active large database under `data/` and a small `app/data/phase8_analysis_lexicon.sqlite3`. The active health result points to the root `data/` database; the small duplicate should be audited and removed or documented to avoid path confusion.
-- The snapshot-regression runner was invoked without required `input_file` and `--reference` arguments. This is a collector invocation error, not a regression failure.
-- Novel Audio Miner has dedicated phase test scripts but no generic `npm test` script. The production build passed, but the collector did not execute the dedicated phase suites.
-- Current OpenAPI response schemas for several endpoints are `{}`. Typed response models would improve API documentation and consumer validation.
-- Teaching backend exists, but the complete teaching frontend remains Phase 8 work.
+- JP Analyzer contains untracked `direct_analyzer_timing.py`; decide whether to commit it as an intentional performance utility or remove/archive it.
+- Two dictionary database files were observed: the active large database under `data/` and a small `app/data/phase8_analysis_lexicon.sqlite3`. The duplicate path must be audited.
+- The snapshot-regression runner was invoked without its required corpus/reference arguments. This was a collector invocation error, not an analyzer regression failure.
+- Novel Audio Miner has dedicated phase test scripts but no generic `npm test` command. The production build passed; dedicated suites must be run explicitly.
+- Several OpenAPI response schemas are untyped/`{}`; typed response models would improve consumer validation and generated API documentation.
+- The teaching backend exists, but the complete teaching frontend remains Phase 8 work.
+- Local browser state, Anki state, dictionary IndexedDB data and correction SQLite rows are not represented by Git and must be treated as machine-local runtime data.
 
-### Next immediate action items
+### Immediate resume sequence on the home computer
 
-1. Replace `D:\Mining\JP analyzer\docs\PROJECT_SNAPSHOT_CURRENT.md` with this file and commit it on JP Analyzer `main`.
-2. Audit Phase 7 dictionary UI and synchronization against the remaining tasks above.
-3. Run all dedicated Novel Audio Miner test scripts (`npm run test:phase5` covers the integrated Phase 3–6 chain) and record the result before Phase 7 code changes.
-4. Run snapshot regression with its required corpus and reference arguments; do not call it with no arguments.
-5. Resolve the duplicate small analyzer database and the untracked timing utility.
-6. Implement Phase 7 in small, independently tested commits.
+1. Synchronize `D:\Mining\JP analyzer` to `origin/main`, preserving Git-ignored databases.
+2. Synchronize `D:\Mining\novel-audio-miner` to `origin/feature/jp-analyzer-integration`.
+3. Verify the home correction and dictionary database paths before starting services.
+4. Start JP Analyzer and confirm `/health`, analyzer version, reader schema, dictionary readiness and correction revision.
+5. Run `run_tests.ps1` and the correctly parameterized snapshot regression.
+6. Run `npm.cmd ci`, `npm.cmd run test:phase5`, `npm.cmd run test:debug-report-v2` and `npm.cmd run build` in Novel Audio Miner.
+7. Replace and commit this canonical snapshot on JP Analyzer `main`.
+8. Begin Phase 7 only after both repositories and runtime data are verified.
 
 ## 3. Full Project File Structure
 
