@@ -9,6 +9,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .dictionary_registry import backfill as backfill_registry
+from .dictionary_registry import rebuild as rebuild_registry
+from .dictionary_registry import records as registry_records
+
 
 DB_PATH = (
     Path(__file__).resolve().parents[3]
@@ -93,10 +97,62 @@ ON lexicon_entries(reading);
 CREATE INDEX IF NOT EXISTS idx_lexicon_type
 ON lexicon_entries(dictionary_type);
 
+CREATE TABLE IF NOT EXISTS dictionary_item_sessions(
+    operation_id TEXT PRIMARY KEY,
+    operation_mode TEXT NOT NULL,
+    target_dictionary_id TEXT NOT NULL,
+    stable_identity TEXT NOT NULL,
+    display_title TEXT NOT NULL,
+    dictionary_type TEXT NOT NULL,
+    priority INTEGER NOT NULL DEFAULT 9999,
+    expected_entries INTEGER NOT NULL,
+    received_entries INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'receiving',
+    revision TEXT,
+    version TEXT,
+    content_digest TEXT,
+    source_url TEXT,
+    update_manifest_url TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    completed_at TEXT,
+    error_code TEXT,
+    error_message TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_dictionary_item_session_status
+ON dictionary_item_sessions(status);
+
 CREATE TABLE IF NOT EXISTS lexicon_meta(
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS installed_dictionaries(
+    dictionary_id TEXT PRIMARY KEY,
+    stable_identity TEXT NOT NULL,
+    display_title TEXT NOT NULL,
+    source_title TEXT NOT NULL,
+    dictionary_type TEXT NOT NULL,
+    priority INTEGER NOT NULL DEFAULT 9999,
+    entry_count INTEGER NOT NULL DEFAULT 0,
+    content_digest TEXT,
+    revision TEXT,
+    version TEXT,
+    source_url TEXT,
+    update_manifest_url TEXT,
+    installed_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    last_update_check_at TEXT,
+    last_update_status TEXT,
+    enabled INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE INDEX IF NOT EXISTS idx_installed_dictionary_stable_identity
+ON installed_dictionaries(stable_identity);
+
+CREATE INDEX IF NOT EXISTS idx_installed_dictionary_type
+ON installed_dictionaries(dictionary_type);
 """
 
 
@@ -165,6 +221,7 @@ def _migrate_schema(connection: sqlite3.Connection) -> None:
         """
     )
 
+    backfill_registry(connection, _utc_now)
 
 @contextmanager
 def _db():
@@ -812,6 +869,8 @@ def finish_sync(sync_id: str) -> dict[str, Any]:
             )
         }
 
+        rebuild_registry(connection, _utc_now)
+
         completed_at = _utc_now()
 
         _set_metadata(
@@ -1039,6 +1098,18 @@ def status() -> dict[str, Any]:
             """
         ).fetchone()[0]
 
+        installed_dictionaries = registry_records(connection)
+        installed_dictionary_count = len(installed_dictionaries)
+        registry_entry_count = sum(
+            item["entryCount"]
+            for item in installed_dictionaries
+        )
+
+    registry_consistent = (
+        installed_dictionary_count == dictionary_count
+        and registry_entry_count == entry_count
+    )
+
     recovery_required = (
         active_session is not None
         or staged_total > 0
@@ -1062,6 +1133,10 @@ def status() -> dict[str, Any]:
         "lastProblemSession": last_problem,
         "stagedEntryCount": staged_total,
         "recoveryRequired": recovery_required,
+        "installedDictionaryCount": installed_dictionary_count,
+        "registryEntryCount": registry_entry_count,
+        "registryConsistent": registry_consistent,
+        "installedDictionaries": installed_dictionaries,
     }
 
 
@@ -1072,6 +1147,8 @@ def clear() -> dict[str, Any]:
             "staging_entries",
             "sync_sessions",
             "lexicon_meta",
+            "installed_dictionaries",
+            "dictionary_item_sessions",
         ):
             connection.execute(
                 f'DELETE FROM "{table}"'

@@ -21,7 +21,7 @@ def main():
             # dictionary.py imports DB_PATH at module import, so update its test seam too.
             evidence_module.DB_PATH = test_path
 
-            session = dictionary_store.start_sync(5, 4)
+            session = dictionary_store.start_sync(5, 5)
             entries = [
                 {"term": "終える", "reading": "おえる", "dictionaryId": "d1", "dictionaryTitle": "Term A", "dictionaryType": "term", "dictionaryPriority": 10, "tags": ["v1", "vt"], "rules": ["v1"]},
                 {"term": "終える", "reading": "おえる", "dictionaryId": "d2", "dictionaryTitle": "Term B", "dictionaryType": "term", "dictionaryPriority": 20, "tags": ["verb"]},
@@ -93,7 +93,6 @@ def main():
         evidence_module.DB_PATH = original_evidence_path
 
     print("Dictionary evidence test passed")
-
 
 if __name__ == "__main__":
     main()
