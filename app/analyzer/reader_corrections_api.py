@@ -12,9 +12,14 @@ from .reader_corrections import (
     list_corrections,
     preview,
     save,
+    preflight_correction_range,
+    reactivate,
 )
 from .reader_projection import READER_SPAN_SCHEMA_VERSION
-from .teaching_annotation_store import save_snapshot, create_annotation, retract_for_correction, list_annotations, corpus_status
+from .teaching_annotation_store import (
+    save_snapshot, create_annotation, retract_for_correction, list_annotations,
+    corpus_status, preflight_annotation_range, update_derived_outcome, integrity_report,
+)
 from .version import ANALYZER_VERSION
 
 router = APIRouter(prefix="/reader-corrections", tags=["reader-corrections"])
@@ -45,6 +50,11 @@ class TeachingResultResponse(BaseModel):
     derivedCorrection: dict[str, Any]
     saved: bool
     correctionId: str | None = None
+    annotationId: str | None = None
+    rawBaselineSnapshotId: str | None = None
+    effectiveBaselineSnapshotId: str | None = None
+    postCorrectionSnapshotId: str | None = None
+    derivedOutcome: dict[str, Any] | None = None
     correctionRevisionBefore: str
     correctionRevisionAfter: str
 
@@ -75,6 +85,7 @@ class DeactivateResponse(BaseModel):
     deactivatedAt: str
     correctionRevisionBefore: str
     correctionRevisionAfter: str
+    annotationId: str | None = None
 
 
 def _data(req: CorrectionRequest):
@@ -109,42 +120,85 @@ def preview_endpoint(req: CorrectionRequest):
 
 @router.post("", response_model=TeachingResultResponse)
 def save_endpoint(req: CorrectionRequest):
+    replaced_corrections: list[str] = []
+    new_correction_id: str | None = None
     try:
         before = correction_revision()
         data, baseline, candidates, selection = _data(req)
-        # Capture a lossless pre-correction snapshot at explicit Save time.
+        correction_preflight = preflight_correction_range(req.sentence, req.start, req.end)
+        preflight_annotation_range(req.sentence, req.start, req.end)
+
         from .pipeline import analyze, analyze_full
-        full = analyze_full(req.sentence)
-        compact = analyze(req.sentence)
-        raw_snapshot_id = save_snapshot(full, compact, kind="raw-baseline")
-        effective_snapshot_id = save_snapshot(full, compact, kind="effective-baseline", raw_baseline_snapshot_id=raw_snapshot_id)
+        from .compact_output import compact_analysis
+
+        # Full analysis is the immutable raw evidence graph. Compacting it applies
+        # the active correction set and therefore records the effective baseline.
+        raw_full = analyze_full(req.sentence)
+        raw_compact = compact_analysis(raw_full, analyzer_version=ANALYZER_VERSION)
+        raw_for_snapshot = dict(raw_compact)
+        raw_for_snapshot["readerSpans"] = baseline
+        raw_snapshot_id = save_snapshot(raw_full, raw_for_snapshot, kind="raw-baseline")
+        effective_snapshot_id = save_snapshot(
+            raw_full, raw_compact, kind="effective-baseline",
+            raw_baseline_snapshot_id=raw_snapshot_id,
+        )
+
+        # Same-range Save is explicit replacement. Temporarily deactivate prior
+        # corrections; compensate by reactivating them if any later step fails.
+        for correction_id in correction_preflight["sameRangeCorrectionIds"]:
+            deactivate(correction_id)
+            replaced_corrections.append(correction_id)
+
         result = save(
             data, baseline, ANALYZER_VERSION, READER_SPAN_SCHEMA_VERSION,
             reader_candidates=candidates, reader_selection=selection,
         )
+        new_correction_id = result["correctionId"]
         after = correction_revision()
-        try:
-            annotation = create_annotation(
-                correction_id=result["correctionId"], sentence=req.sentence, start=req.start, end=req.end,
-                surface=req.surface, action=req.action, display_role=result["derivedCorrection"].get("displayRole"),
-                split_offsets=req.splitOffsets, target_spans=result["previewReaderSpans"],
-                raw_snapshot_id=raw_snapshot_id, effective_snapshot_id=effective_snapshot_id,
-                confidence=req.confidence, note=req.note, provenance=req.provenance,
-                revision_before=before, revision_after=after,
-            )
-        except Exception:
-            # Durable compensation: never leave an active correction without its annotation.
-            deactivate(result["correctionId"])
-            raise
-        result["annotationId"] = annotation["annotation_id"]
-        result["rawBaselineSnapshotId"] = raw_snapshot_id
-        result["effectiveBaselineSnapshotId"] = effective_snapshot_id
-        result["correctionRevisionBefore"] = before
-        result["correctionRevisionAfter"] = after
+        annotation = create_annotation(
+            correction_id=new_correction_id, sentence=req.sentence, start=req.start, end=req.end,
+            surface=req.surface, action=req.action, display_role=result["derivedCorrection"].get("displayRole"),
+            split_offsets=req.splitOffsets, target_spans=result["previewReaderSpans"],
+            raw_snapshot_id=raw_snapshot_id, effective_snapshot_id=effective_snapshot_id,
+            confidence=req.confidence, note=req.note, provenance=req.provenance,
+            revision_before=before, revision_after=after,
+        )
+
+        post_compact = analyze(req.sentence)
+        post_full = analyze_full(req.sentence)
+        post_snapshot_id = save_snapshot(
+            post_full, post_compact, kind="post-correction",
+            raw_baseline_snapshot_id=raw_snapshot_id,
+        )
+        annotation = update_derived_outcome(
+            annotation["annotation_id"], post_snapshot_id, post_compact, req.start, req.end
+        )
+        result.update({
+            "annotationId": annotation["annotation_id"],
+            "rawBaselineSnapshotId": raw_snapshot_id,
+            "effectiveBaselineSnapshotId": effective_snapshot_id,
+            "postCorrectionSnapshotId": post_snapshot_id,
+            "derivedOutcome": annotation["derived_outcome"],
+            "correctionRevisionBefore": before,
+            "correctionRevisionAfter": correction_revision(),
+        })
         return result
     except ValueError as exc:
+        if new_correction_id:
+            try: deactivate(new_correction_id)
+            except ValueError: pass
+        for correction_id in replaced_corrections:
+            try: reactivate(correction_id)
+            except ValueError: pass
         raise HTTPException(422, str(exc)) from exc
-
+    except Exception:
+        if new_correction_id:
+            try: deactivate(new_correction_id)
+            except ValueError: pass
+        for correction_id in replaced_corrections:
+            try: reactivate(correction_id)
+            except ValueError: pass
+        raise
 
 @router.get("", response_model=CorrectionListResponse)
 def list_endpoint(includeInactive: bool = Query(False)):
@@ -169,6 +223,11 @@ def scope_endpoint(
         ),
         "correctionRevision": correction_revision(),
     }
+
+
+@router.get("/integrity")
+def integrity_endpoint():
+    return integrity_report(list_corrections(include_inactive=True))
 
 
 @router.delete("/{correction_id}", response_model=DeactivateResponse)

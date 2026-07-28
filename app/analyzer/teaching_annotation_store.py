@@ -126,3 +126,82 @@ def corpus_status(db_path=None):
   snaps=con.execute('SELECT COUNT(*) FROM analyzer_snapshots').fetchone()[0]
   counts={r['status']:r['n'] for r in con.execute('SELECT status,COUNT(*) n FROM teaching_annotations GROUP BY status')}
  return {'database':str(db_path or DB_PATH),'snapshotCount':snaps,'annotationCounts':counts,'activeAnnotationCount':counts.get('active',0)}
+
+
+
+def preflight_annotation_range(sentence: str, start: int, end: int, db_path=None) -> dict[str, Any]:
+    same = []
+    conflicts = []
+    with _lock, _db(db_path) as con:
+        rows = con.execute(
+            "SELECT annotation_id,start,end,surface FROM teaching_annotations "
+            "WHERE sentence_fingerprint=? AND status='active' ORDER BY created_at",
+            (_fingerprint(sentence),),
+        ).fetchall()
+    for row in rows:
+        if row["start"] == start and row["end"] == end:
+            same.append(row["annotation_id"])
+        elif _overlap(start, end, row["start"], row["end"]):
+            conflicts.append(dict(row))
+    if conflicts:
+        item = conflicts[0]
+        raise ValueError(
+            f"Selected range overlaps active annotation {item['annotation_id']} "
+            f"at {item['start']}..{item['end']}; retract it before saving"
+        )
+    return {"sameRangeAnnotationIds": same, "conflicts": []}
+
+
+def update_derived_outcome(annotation_id: str, post_snapshot_id: str, compact: dict[str, Any], start: int, end: int, db_path=None):
+    selected = next((x for x in compact.get("readerSpans", []) if x.get("start") == start and x.get("end") == end), None)
+    errors = [] if selected else ["corrected selected range not found as one post-correction Reader span"]
+    outcome = {
+        "postCorrectionSnapshotId": post_snapshot_id,
+        "effectiveReaderSpans": compact.get("readerSpans") or [],
+        "selectedSpan": selected,
+        "knownLookupKey": selected.get("knownLookupKey") if selected else None,
+        "frequencyLookupKey": selected.get("frequencyLookupKey") if selected else None,
+        "countsForComprehension": selected.get("countsForComprehension") if selected else None,
+        "showInNewWords": selected.get("showInNewWords") if selected else None,
+        "eligibleForMining": selected.get("eligibleForMining") if selected else None,
+        "presentationClass": selected.get("displayRole") if selected else None,
+        "colourSource": selected.get("colorPolicy") if selected else None,
+        "unknownColorPolicy": selected.get("unknownColorPolicy") if selected else None,
+        "derivationStatus": "complete" if selected else "partial",
+        "derivationErrors": errors,
+    }
+    now = _now()
+    with _lock, _db(db_path) as con:
+        cursor = con.execute(
+            "UPDATE teaching_annotations SET derived_outcome_json=?,updated_at=? WHERE annotation_id=?",
+            (_canonical(outcome), now, annotation_id),
+        )
+    if cursor.rowcount != 1:
+        raise ValueError("Annotation not found")
+    return get_annotation(annotation_id, db_path=db_path)
+
+
+def integrity_report(corrections: list[dict[str, Any]], db_path=None) -> dict[str, Any]:
+    annotations = list_annotations(include_inactive=True, db_path=db_path)
+    correction_by_id = {x.get("correction_id"): x for x in corrections}
+    active_annotations = [x for x in annotations if x["status"] == "active"]
+    issues = []
+    for ann in active_annotations:
+        correction = correction_by_id.get(ann["correction_id"])
+        if correction is None:
+            issues.append({"code": "ACTIVE_ANNOTATION_MISSING_CORRECTION", "annotationId": ann["annotation_id"]})
+        elif correction.get("deactivated_at") is not None:
+            issues.append({"code": "ACTIVE_ANNOTATION_INACTIVE_CORRECTION", "annotationId": ann["annotation_id"], "correctionId": ann["correction_id"]})
+    active_correction_ids = {x.get("correction_id") for x in corrections if x.get("deactivated_at") is None}
+    active_annotation_correction_ids = {x["correction_id"] for x in active_annotations}
+    for correction_id in sorted(active_correction_ids - active_annotation_correction_ids):
+        issues.append({"code": "ACTIVE_CORRECTION_MISSING_ANNOTATION", "correctionId": correction_id})
+    with _lock, _db(db_path) as con:
+        missing_snapshots = con.execute(
+            "SELECT annotation_id FROM teaching_annotations WHERE "
+            "raw_baseline_snapshot_id NOT IN (SELECT snapshot_id FROM analyzer_snapshots) OR "
+            "effective_baseline_snapshot_id NOT IN (SELECT snapshot_id FROM analyzer_snapshots)"
+        ).fetchall()
+    for row in missing_snapshots:
+        issues.append({"code": "ANNOTATION_MISSING_SNAPSHOT", "annotationId": row["annotation_id"]})
+    return {"ok": not issues, "issueCount": len(issues), "issues": issues, "corpus": corpus_status(db_path)}

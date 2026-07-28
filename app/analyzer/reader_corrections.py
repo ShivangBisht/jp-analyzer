@@ -550,3 +550,37 @@ def deactivate(correction_id: str) -> dict[str, Any]:
     if cursor.rowcount != 1:
         raise ValueError("Active correction not found")
     return {"correctionId": correction_id, "active": False, "deactivatedAt": now}
+
+
+
+def preflight_correction_range(sentence: str, start: int, end: int) -> dict[str, Any]:
+    """Classify range conflicts before either persistent store is mutated."""
+    same_range = []
+    conflicts = []
+    for row in find_corrections(sentence, start=start, end=end, include_inactive=False):
+        if row["start"] == start and row["end"] == end:
+            same_range.append(row["correction_id"])
+        elif row["start"] < end and start < row["end"]:
+            conflicts.append({
+                "correctionId": row["correction_id"], "start": row["start"],
+                "end": row["end"], "surface": row["surface"],
+            })
+    if conflicts:
+        item = conflicts[0]
+        raise ValueError(
+            f"Selected range overlaps active correction {item['correctionId']} "
+            f"at {item['start']}..{item['end']}; Undo it before saving this correction"
+        )
+    return {"sameRangeCorrectionIds": same_range, "conflicts": []}
+
+
+def reactivate(correction_id: str) -> dict[str, Any]:
+    """Compensation helper used only when a coordinated Save fails."""
+    with _lock, _db() as con:
+        cursor = con.execute(
+            "UPDATE reader_corrections SET deactivated_at=NULL WHERE correction_id=? AND deactivated_at IS NOT NULL",
+            (correction_id,),
+        )
+    if cursor.rowcount != 1:
+        raise ValueError("Inactive correction not found")
+    return {"correctionId": correction_id, "active": True}
