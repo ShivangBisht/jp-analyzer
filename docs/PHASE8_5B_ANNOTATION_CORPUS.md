@@ -1,0 +1,3 @@
+# Phase 8.5B Annotation Corpus Persistence
+
+A separate local SQLite database, `data/teaching_annotations.sqlite3`, stores content-addressed analyzer snapshots, partial Teaching annotations, and append-only history. Runtime corrections remain in `reader_corrections.sqlite3`. Explicit Save captures raw/effective snapshots, saves the correction, then creates the linked annotation. If annotation persistence fails, the new correction is immediately deactivated as durable compensation. Undo retracts the linked annotation without deleting evidence. Non-overlapping active annotations may coexist; same-range Save supersedes history; partial overlap and containment are rejected.

@@ -14,6 +14,7 @@ from .reader_corrections import (
     save,
 )
 from .reader_projection import READER_SPAN_SCHEMA_VERSION
+from .teaching_annotation_store import save_snapshot, create_annotation, retract_for_correction, list_annotations, corpus_status
 from .version import ANALYZER_VERSION
 
 router = APIRouter(prefix="/reader-corrections", tags=["reader-corrections"])
@@ -31,6 +32,9 @@ class CorrectionRequest(BaseModel):
     baselineReaderSpans: list[dict[str, Any]] = Field(default_factory=list)
     readerCandidates: list[dict[str, Any]] = Field(default_factory=list)
     readerSelection: dict[str, Any] = Field(default_factory=dict)
+    confidence: str = "preference"
+    note: str | None = None
+    provenance: dict[str, Any] = Field(default_factory=dict)
 
 
 class TeachingResultResponse(BaseModel):
@@ -78,6 +82,9 @@ def _data(req: CorrectionRequest):
     baseline = payload.pop("baselineReaderSpans")
     candidates = payload.pop("readerCandidates")
     selection = payload.pop("readerSelection")
+    payload.pop("confidence", None)
+    payload.pop("note", None)
+    payload.pop("provenance", None)
     if not baseline:
         from .pipeline import analyze
         current = analyze(req.sentence)
@@ -105,12 +112,35 @@ def save_endpoint(req: CorrectionRequest):
     try:
         before = correction_revision()
         data, baseline, candidates, selection = _data(req)
+        # Capture a lossless pre-correction snapshot at explicit Save time.
+        from .pipeline import analyze, analyze_full
+        full = analyze_full(req.sentence)
+        compact = analyze(req.sentence)
+        raw_snapshot_id = save_snapshot(full, compact, kind="raw-baseline")
+        effective_snapshot_id = save_snapshot(full, compact, kind="effective-baseline", raw_baseline_snapshot_id=raw_snapshot_id)
         result = save(
             data, baseline, ANALYZER_VERSION, READER_SPAN_SCHEMA_VERSION,
             reader_candidates=candidates, reader_selection=selection,
         )
+        after = correction_revision()
+        try:
+            annotation = create_annotation(
+                correction_id=result["correctionId"], sentence=req.sentence, start=req.start, end=req.end,
+                surface=req.surface, action=req.action, display_role=result["derivedCorrection"].get("displayRole"),
+                split_offsets=req.splitOffsets, target_spans=result["previewReaderSpans"],
+                raw_snapshot_id=raw_snapshot_id, effective_snapshot_id=effective_snapshot_id,
+                confidence=req.confidence, note=req.note, provenance=req.provenance,
+                revision_before=before, revision_after=after,
+            )
+        except Exception:
+            # Durable compensation: never leave an active correction without its annotation.
+            deactivate(result["correctionId"])
+            raise
+        result["annotationId"] = annotation["annotation_id"]
+        result["rawBaselineSnapshotId"] = raw_snapshot_id
+        result["effectiveBaselineSnapshotId"] = effective_snapshot_id
         result["correctionRevisionBefore"] = before
-        result["correctionRevisionAfter"] = correction_revision()
+        result["correctionRevisionAfter"] = after
         return result
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
@@ -146,8 +176,16 @@ def deactivate_endpoint(correction_id: str):
     try:
         before = correction_revision()
         result = deactivate(correction_id)
+        after = correction_revision()
+        annotation = retract_for_correction(correction_id, revision_before=before, revision_after=after)
+        result["annotationId"] = annotation.get("annotation_id") if annotation else None
         result["correctionRevisionBefore"] = before
-        result["correctionRevisionAfter"] = correction_revision()
+        result["correctionRevisionAfter"] = after
         return result
     except ValueError as exc:
         raise HTTPException(404, str(exc)) from exc
+
+
+@router.get("/annotations")
+def annotations_endpoint(includeInactive: bool = Query(False), sentence: str | None = None):
+    return {"annotations": list_annotations(includeInactive, sentence=sentence), "corpus": corpus_status()}
