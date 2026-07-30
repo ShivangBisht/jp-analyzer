@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "1.0",
+  "auditedCommit": "47cd14af8effc51b1a715e6ea5edc00b419af0f2",
+  "stages": [
+    {
+      "id": "full-analysis",
+      "producer": "AnalyzerEngine.analyze_full",
+      "output": "lossless analysis"
+    },
+    {
+      "id": "core-candidates",
+      "producer": "normalize_candidates + KWJA normalization",
+      "output": "resolver_candidates_alpha2"
+    },
+    {
+      "id": "core-resolution",
+      "producer": "resolve_candidates",
+      "output": "resolved_spans_alpha2,resolver_decisions_alpha2,resolver_conflicts_alpha2"
+    },
+    {
+      "id": "reader-candidates",
+      "producer": "project_reader_candidates",
+      "output": "existing and generated alternatives"
+    },
+    {
+      "id": "reader-selection",
+      "producer": "select_reader_output",
+      "output": "readerSpans,readerCandidates,readerSelection"
+    },
+    {
+      "id": "operational-correction",
+      "producer": "apply_active_corrections",
+      "output": "post-selection exact-occurrence Reader spans"
+    }
+  ]
+}

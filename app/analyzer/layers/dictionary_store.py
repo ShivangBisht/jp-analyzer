@@ -1140,7 +1140,12 @@ def status() -> dict[str, Any]:
     }
 
 
-def clear() -> dict[str, Any]:
+def clear(*, allow_authoritative: bool = False) -> dict[str, Any]:
+    """Clear dictionary state only in explicit maintenance or test contexts."""
+    if not allow_authoritative:
+        raise PermissionError(
+            "DICTIONARY_CLEAR_DISABLED: authoritative analyzer lexicon is protected"
+        )
     with _lock, _db() as connection:
         for table in (
             "lexicon_entries",
@@ -1150,8 +1155,6 @@ def clear() -> dict[str, Any]:
             "installed_dictionaries",
             "dictionary_item_sessions",
         ):
-            connection.execute(
-                f'DELETE FROM "{table}"'
-            )
+            connection.execute(f'DELETE FROM "{table}"')
 
     return status()

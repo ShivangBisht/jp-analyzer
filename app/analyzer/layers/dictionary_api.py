@@ -20,7 +20,6 @@ from .dictionary_items import (
 from .dictionary_store import (
     add_batch,
     cancel_sync,
-    clear,
     finish_sync,
     recover_interrupted_syncs,
     start_sync,
@@ -232,12 +231,18 @@ def get_status():
     return status()
 
 
-@router.delete(
-    "/cache",
-    response_model=DictionaryStatusResponse,
-)
+@router.delete("/cache", status_code=410)
 def delete_cache():
-    return clear()
+    raise HTTPException(
+        status_code=410,
+        detail={
+            "code": "DICTIONARY_CLEAR_DISABLED",
+            "message": (
+                "Deleting the authoritative analyzer lexicon is disabled. "
+                "Use dictionary-management install, update, replace, or remove operations instead."
+            ),
+        },
+    )
 
 
 class DictionaryItemStartRequest(BaseModel):

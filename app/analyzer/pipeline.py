@@ -10,6 +10,7 @@ from .contracts import AnalyzeOptions
 from .engine import AnalyzerEngine
 from .runtime import get_runtime
 from .version import ANALYZER_VERSION, ENGINE_CONTRACT_VERSION
+from .analyzer_decision_snapshot import build_analyzer_decision_snapshot
 
 
 def _engine() -> AnalyzerEngine:
@@ -61,4 +62,24 @@ def analyze(
     return full if debug else compact_analysis(
         full,
         analyzer_version=ANALYZER_VERSION,
+    )
+
+
+def analyze_decision_snapshot(
+    text,
+    nlp=None,
+    *,
+    use_dictionary=True,
+    raw_knp=None,
+    kwja_executable=None,
+    captured_at=None,
+    require_dictionary_ready=True,
+):
+    full = analyze_full(
+        text, nlp, use_dictionary=use_dictionary, raw_knp=raw_knp,
+        kwja_executable=kwja_executable,
+    )
+    return build_analyzer_decision_snapshot(
+        full, captured_at=captured_at,
+        require_dictionary_ready=require_dictionary_ready,
     )

@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "1.0",
+  "gaps": [
+    {
+      "id": "A1-G01",
+      "severity": "critical",
+      "summary": "No correction-free compact output entry point"
+    },
+    {
+      "id": "A1-G02",
+      "severity": "critical",
+      "summary": "Core partition total score and tie-break trace discarded"
+    },
+    {
+      "id": "A1-G03",
+      "severity": "critical",
+      "summary": "No candidate-generation event ledger"
+    },
+    {
+      "id": "A1-G04",
+      "severity": "critical",
+      "summary": "No stable dictionary revision"
+    },
+    {
+      "id": "A1-G05",
+      "severity": "critical",
+      "summary": "Core decisions/conflicts omitted from compact output"
+    },
+    {
+      "id": "A1-G06",
+      "severity": "critical",
+      "summary": "Corrections are post-selection replacements"
+    },
+    {
+      "id": "A1-G07",
+      "severity": "high",
+      "summary": "Core candidate IDs are order-derived"
+    },
+    {
+      "id": "A1-G08",
+      "severity": "high",
+      "summary": "Core score policy not explicitly versioned"
+    },
+    {
+      "id": "A1-G09",
+      "severity": "high",
+      "summary": "Dictionary support contribution compressed"
+    },
+    {
+      "id": "A1-G10",
+      "severity": "high",
+      "summary": "Reader priority tuple not serialized"
+    },
+    {
+      "id": "A1-G11",
+      "severity": "high",
+      "summary": "No runner-up partition or margin"
+    },
+    {
+      "id": "A1-G12",
+      "severity": "high",
+      "summary": "Two candidate systems share one public array"
+    }
+  ]
+}
