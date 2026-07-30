@@ -1,3 +1,10 @@
+from .teaching_decision_record import (
+    TEACHING_DECISION_RECORD_SCHEMA_VERSION,
+    RangeAssertion,
+    TeachingDecisionRecord,
+    build_teaching_decision_record,
+    validate_teaching_decision_record,
+)
 from .adapters import DictionaryAdapter, KwjaAdapter
 from .config import AnalyzerConfig
 from .contracts import AnalyzeOptions, linguistic_projection
@@ -14,6 +21,11 @@ from .analyzer_decision_snapshot import (
 from .version import ANALYZER_VERSION, SCHEMA_VERSION
 
 __all__ = [
+    "TEACHING_DECISION_RECORD_SCHEMA_VERSION",
+    "RangeAssertion",
+    "TeachingDecisionRecord",
+    "build_teaching_decision_record",
+    "validate_teaching_decision_record",
     "ANALYZER_VERSION",
     "SCHEMA_VERSION",
     "AnalyzerConfig",
