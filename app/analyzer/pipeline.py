@@ -73,9 +73,13 @@ def analyze_decision_snapshot(
     raw_knp=None,
     kwja_executable=None,
     captured_at=None,
+    require_dictionary_ready=True,
 ):
     full = analyze_full(
         text, nlp, use_dictionary=use_dictionary, raw_knp=raw_knp,
         kwja_executable=kwja_executable,
     )
-    return build_analyzer_decision_snapshot(full, captured_at=captured_at)
+    return build_analyzer_decision_snapshot(
+        full, captured_at=captured_at,
+        require_dictionary_ready=require_dictionary_ready,
+    )

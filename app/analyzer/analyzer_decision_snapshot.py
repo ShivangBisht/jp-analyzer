@@ -164,6 +164,21 @@ def _dictionary_identity(status: dict[str, Any]) -> dict[str, Any]:
         "typeCounts": dict(status.get("typeCounts") or {}),
         "registryEntryCount": status.get("registryEntryCount"),
         "registryConsistent": status.get("registryConsistent"),
+        "database": status.get("database"),
+        "registryDigest": "sha256:" + _digest([
+            {
+                "dictionaryId": item.get("dictionaryId"),
+                "stableIdentity": item.get("stableIdentity"),
+                "dictionaryType": item.get("dictionaryType"),
+                "priority": item.get("priority"),
+                "entryCount": item.get("entryCount"),
+                "contentDigest": item.get("contentDigest"),
+                "revision": item.get("revision"),
+                "version": item.get("version"),
+                "enabled": item.get("enabled"),
+            }
+            for item in (status.get("installedDictionaries") or [])
+        ]),
     }
     selected["identityDigest"] = "sha256:" + _digest(selected)
     return selected
@@ -175,6 +190,7 @@ def build_analyzer_decision_snapshot(
     captured_at: str | None = None,
     dictionary_status_fn: DictionaryStatus = dictionary_status,
     analyzer_version: str = ANALYZER_VERSION,
+    require_dictionary_ready: bool = True,
 ) -> dict[str, Any]:
     """Build an immutable, correction-free observation of the current analyzer.
 
@@ -189,6 +205,11 @@ def build_analyzer_decision_snapshot(
     core_candidates = _core_candidates(full, text_sha256)
     reader_candidates = _reader_candidates(compact, text_sha256)
     dictionary = _dictionary_identity(dictionary_status_fn())
+    if require_dictionary_ready and not dictionary["ready"]:
+        raise RuntimeError(
+            "ANALYZER_SNAPSHOT_DICTIONARY_NOT_READY: corpus-grade snapshot capture "
+            "requires a populated analyzer dictionary"
+        )
 
     content = {
         "schemaVersion": ANALYZER_DECISION_SNAPSHOT_SCHEMA_VERSION,
