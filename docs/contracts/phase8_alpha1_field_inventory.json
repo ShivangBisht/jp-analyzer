@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "1.0",
+  "candidateSystems": [
+    {
+      "name": "core-resolver",
+      "score": "utility_score",
+      "fields": [
+        "candidate_id",
+        "start",
+        "end",
+        "surface",
+        "proposed_role",
+        "candidate_family",
+        "headword",
+        "grammar_id",
+        "confidence",
+        "protected",
+        "source_layer",
+        "source_annotation_id",
+        "morpheme_ids",
+        "dictionary_evidence",
+        "evidence",
+        "utility_dimensions",
+        "utility_score"
+      ]
+    },
+    {
+      "name": "reader-generator-selector",
+      "score": null,
+      "fields": [
+        "candidateId",
+        "candidateSource",
+        "start",
+        "end",
+        "surface",
+        "proposedRole",
+        "candidateFamily",
+        "possibleLookupKeys",
+        "lookupHypotheses",
+        "preferredLookupKey",
+        "grammarId",
+        "componentIds",
+        "evidence",
+        "features",
+        "hardRejectionReasons",
+        "dictionaryEvaluation",
+        "candidateStructuralEvidence",
+        "abstentionReasons",
+        "rankingStatus",
+        "selected",
+        "selectionReason"
+      ]
+    }
+  ],
+  "readerSpanFields": [
+    "start",
+    "end",
+    "surface",
+    "displayRole",
+    "lexicalType",
+    "colorPolicy",
+    "unknownColorPolicy",
+    "knownLookupKey",
+    "frequencyLookupKey",
+    "countsForComprehension",
+    "showInNewWords",
+    "eligibleForMining",
+    "headword",
+    "grammarId",
+    "confidence",
+    "sourceSpanIds",
+    "sourceLayer",
+    "projectionStatus"
+  ]
+}
