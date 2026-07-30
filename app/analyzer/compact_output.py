@@ -16,6 +16,7 @@ def compact_analysis(
     result: dict[str, Any],
     *,
     analyzer_version: str,
+    apply_corrections: bool = True,
 ) -> dict[str, Any]:
     """Project the evidence graph into stable consumer schemas.
 
@@ -29,18 +30,24 @@ def compact_analysis(
     reader_spans, reader_candidates, reader_selection = select_reader_output(
         result, evaluated_reader_candidates
     )
-    reader_spans, applied_corrections = apply_active_corrections(
-        result.get("text", ""), reader_spans
-    )
+    compatibility_reader_spans = project_reader_spans(result)
+    if apply_corrections:
+        reader_spans, applied_corrections = apply_active_corrections(
+            result.get("text", ""), reader_spans
+        )
+    else:
+        applied_corrections = []
     reader_selection = dict(reader_selection)
     reader_selection["appliedCorrections"] = applied_corrections
     reader_selection["appliedCorrectionCount"] = len(applied_corrections)
+    if not apply_corrections:
+        reader_selection["correctionApplication"] = "disabled-for-snapshot"
     diagnostics = result.get("diagnostics_alpha2") or []
     metadata = result.get("kwja_metadata_alpha1") or {}
     change = result.get("alpha2_change_summary") or {}
     text = result.get("text", "")
 
-    return {
+    output = {
         "schemaVersion": SCHEMA_VERSION,
         "readerSpanSchemaVersion": READER_SPAN_SCHEMA_VERSION,
         "readerCandidateSchemaVersion": READER_CANDIDATE_SCHEMA_VERSION,
@@ -80,3 +87,6 @@ def compact_analysis(
         "changeSummary": change,
         "diagnostics": diagnostics,
     }
+    if not apply_corrections:
+        output["compatibilityReaderSpans"] = compatibility_reader_spans
+    return output

@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AnalyzerDecisionSnapshot v1",
+  "type": "object",
+  "required": [
+    "snapshotId",
+    "capturedAt",
+    "contentDigest",
+    "schemaVersion",
+    "source",
+    "analyzerIdentity",
+    "dictionaryIdentity",
+    "fullAnalysis",
+    "coreDecision",
+    "readerDecision",
+    "generationObservability",
+    "correctionContext",
+    "replayability"
+  ],
+  "properties": {
+    "snapshotId": {
+      "type": "string",
+      "pattern": "^ads-[0-9a-f]{24}$"
+    },
+    "capturedAt": {
+      "type": "string"
+    },
+    "contentDigest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "source": {
+      "type": "object"
+    },
+    "analyzerIdentity": {
+      "type": "object"
+    },
+    "dictionaryIdentity": {
+      "type": "object"
+    },
+    "fullAnalysis": {
+      "type": "object"
+    },
+    "coreDecision": {
+      "type": "object"
+    },
+    "readerDecision": {
+      "type": "object"
+    },
+    "generationObservability": {
+      "type": "object"
+    },
+    "correctionContext": {
+      "type": "object"
+    },
+    "replayability": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}
