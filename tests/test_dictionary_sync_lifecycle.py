@@ -359,6 +359,17 @@ def test_additive_migration_from_legacy_schema() -> None:
         / "legacy-schema.sqlite3"
     )
 
+    for database_file in (
+        migration_database,
+        migration_database.with_name(
+            f"{migration_database.name}-wal"
+        ),
+        migration_database.with_name(
+            f"{migration_database.name}-shm"
+        ),
+    ):
+        database_file.unlink(missing_ok=True)
+
     with sqlite3.connect(migration_database) as connection:
         connection.executescript(
             """
