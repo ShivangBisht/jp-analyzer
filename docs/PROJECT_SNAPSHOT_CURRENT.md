@@ -22701,3 +22701,440 @@ Phase 8.5A must audit the full analyzer result to determine which evidence field
 
 The corpus backend belongs in JP Analyzer because JP Analyzer owns linguistic evidence, candidates, final decisions, corrections, roles, lookup identities, and future tuning. Novel Audio Miner supplies EPUB provenance and user intent but must not construct or reinterpret linguistic layers.
 
+---
+
+## Phase 8 Alpha Architecture Addendum: Analyzer-Native Teaching Corpus Foundation
+
+**Addendum date:** 30 July 2026, IST  
+**Roadmap status:** Phase 7 is complete. Phase 8.1 through Phase 8.6 produced and validated the operational Teaching shell, exact-occurrence correction lifecycle, initial annotation persistence, history, provenance, confidence, and frontend diagnostics. Production Teaching-data collection is paused. The next phase is **Phase 8 Alpha 1: current analyzer observability and scoring-field audit**.
+
+### Status supersession and preserved history
+
+This addendum preserves all earlier implementation history, ownership rules, dictionary-management evidence, correction work, annotation experiments, and runtime notes in this snapshot. It supersedes the earlier assumption that the current Phase 8.5/8.6 annotation representation is ready to become a long-lived tuning corpus.
+
+The existing implementation remains valuable as an experimental operational shell:
+
+- exact browser range selection;
+- authoritative Preview before Save;
+- exact-occurrence correction application;
+- analyzer cache and correction-revision refresh;
+- Undo, retraction, and same-range supersession;
+- partial-range coverage concepts;
+- confidence, note, and EPUB provenance capture;
+- raw/effective/post-correction snapshot experiments;
+- annotation IDs, history, and derived-outcome diagnostics.
+
+However, the current Teaching records are **test data only**, are **excluded from future tuning exports**, and may be cleared. The dictionary database remains authoritative and must not be cleared with Teaching data.
+
+### Confirmed design failure that triggered Phase 8 Alpha
+
+During Phase 8.6 manual testing, the reader taught `響き渡る` as Vocabulary. The operational structure changed correctly from:
+
+```text
+響き | 渡る
+```
+
+to:
+
+```text
+響き渡る
+```
+
+but the stored semantic outcome became:
+
+```text
+Role: unresolved
+Known lookup: not derived
+Frequency lookup: not derived
+Comprehension: no
+New Words: no
+Mining: no
+Colour policy: neutral
+```
+
+The structural validation reported `complete` because the corrected range existed as one post-correction Reader span. The result did not preserve the user's Vocabulary assertion and did not analyze the newly taught complete surface through the same candidate, dictionary, scoring, decision, and Reader-policy pipeline used by normal analysis.
+
+This demonstrated that the current implementation is primarily a Reader-span replacement and evidence-capture mechanism, not yet an analyzer-native supervision pipeline. A narrow special case for `響き渡る` must not be added. The architecture must be formalized first.
+
+### Final Phase 8 Alpha objective
+
+Teaching exists primarily to create a replayable, analyzer-native supervision corpus while normal reading naturally reveals analyzer mistakes and correct decisions.
+
+For each reviewed range, the corpus must answer:
+
+> Given the analyzer version, dictionary state, immutable layer evidence, candidate set, feature values, utility dimensions, scores, gates, conflicts, and selected sentence structure at that time, which structure did the reader approve, and which analyzer decision or alternative did that approval accept or reject?
+
+The operational Reader correction is secondary. It may improve the exact current occurrence, but it must never silently become a global linguistic rule and must not be mistaken for approved training truth.
+
+### Current analyzer decision architecture to formalize
+
+The current analyzer already follows the required high-level shape:
+
+```text
+Sentence
+→ immutable linguistic layers
+→ dictionary and KWJA evidence
+→ normalized Reader candidates
+→ utility dimensions and utility score
+→ dynamic-programming partition resolver
+→ selected decisions and rejected overlaps
+→ resolved spans
+→ compact readerCandidates, readerSelection, and readerSpans
+```
+
+The current resolver already serializes important tuning evidence, including:
+
+- candidate IDs, source ranges, surfaces, families, proposed roles, headwords, grammar IDs, confidence, source layers, source annotation IDs, morpheme IDs, dictionary evidence, and layer evidence;
+- lexicographic `utility_dimensions` representing integrity, protected/context family, specificity, completeness, dictionary corroboration, and confidence;
+- integer `utility_score` used by the partition resolver;
+- selected candidate IDs, rejected overlapping candidate IDs, decision policies, reasons, and confidence;
+- conflict records and the final exact source-covering partition;
+- KWJA proposal eligibility, corroboration/evidence-only status, resolver eligibility, decision reasons, and baseline overlap;
+- dictionary lookup attempts, selected lookup forms, match types, source counts, dictionary type counts, headwords, POS compatibility, compact matching entries, and evidence confidence.
+
+Phase 8 Alpha 1 must inventory these fields directly from the current source and identify every scoring input, hard gate, bonus, penalty, tie-breaker, partition-level value, and abstention reason that is computed but not currently serialized. No parallel scoring vocabulary should be invented.
+
+### AnalyzerDecisionSnapshot v1
+
+`AnalyzerDecisionSnapshot v1` will be the immutable record of what the analyzer knew and selected **before the new Teaching assertion**.
+
+Minimum sections:
+
+```text
+snapshot identity and schema versions
+stable source provenance and sentence fingerprint
+analyzer, engine, layer, candidate, feature, scoring, decision, and dictionary identity
+lossless full analysis
+normalized candidate evaluations
+feature values and score contributions where available
+hard-gate and eligibility outcomes
+conflicts and competing partitions
+selected candidate IDs and final Reader spans
+selection trace, reasons, and abstentions
+compact output
+replayability metadata and content digests
+```
+
+Rules:
+
+- immutable after capture;
+- content-addressed and deduplicated where safe;
+- correction-free raw observation for the new Teaching event;
+- analyzer-native, not a frontend approximation;
+- versioned independently for full analysis, candidates, features, scoring, decision policy, and Reader output;
+- sufficient to distinguish candidate-generation failure from ranking, gating, role, identity, or partition failure;
+- preserve both the lossless analyzer output and a normalized training projection.
+
+### TeachingDecisionRecord v1
+
+`TeachingDecisionRecord v1` will contain the reader's partial supervision and reference one immutable AnalyzerDecisionSnapshot.
+
+Common sections:
+
+```text
+record identity, schema, time, and corpus mode
+snapshot reference
+review-coverage mask
+boundary assertion
+classification assertion
+optional identity assertion
+reader-approved target spans
+reader-approved full Reader partition
+analyzer-versus-reader decision comparison
+failure classification
+validation dimensions
+judgment type and confidence
+review, semantic, operational, and export states
+optional exact-occurrence correction link
+append-only lifecycle history
+```
+
+The reader assertion, analyzer evidence, and effective current-occurrence output are separate facts. User intent must never be silently rewritten. If the reader asserts Vocabulary and analyzer identity remains unconfirmed, the record must preserve:
+
+```text
+asserted classification: lexical
+identity status: user-asserted-unconfirmed
+known lookup key: null
+candidate present or missing: explicit
+failure classification: explicit
+review/export eligibility: conservative
+```
+
+It must not replace the assertion with `unresolved`.
+
+### Supported supervision use cases
+
+The formal schema and fixtures must cover:
+
+1. **Accept current / Analyzer is correct**  
+   A tick action records a positive reviewed label for the selected current span or structure. This is mandatory to prevent an error-only, correction-biased corpus.
+
+2. **Boundary merge**  
+   The reader approves one span over multiple analyzer-selected spans without necessarily asserting a semantic role.
+
+3. **Boundary split**  
+   The reader approves explicit internal boundaries. Every resulting target span is validated independently through normal analyzer stages.
+
+4. **Vocabulary**  
+   The reader asserts a lexical unit. Exact surface, normalization, reading, lemma/deinflection, dictionary evidence, compound generation, candidate features, and standard Reader policy are evaluated through existing analyzer modules.
+
+5. **Grammar**  
+   The reader asserts a learnable grammar range. Grammar candidate generation, catalog identity, focus range, host relation, evidence, scoring, and uncatalogued-user-assertion status must be preserved.
+
+6. **Function**  
+   The reader asserts contextual function material. Any lexical or grammar evidence being overruled must remain visible in the decision comparison.
+
+7. **Name**  
+   The reader asserts a name span. Name-dictionary, morphology, entity, reading, name type, and user-asserted-unconfirmed states must remain distinct.
+
+8. **Unresolved**  
+   The reader approves a boundary but deliberately declines lexical, grammar, function, or name identity.
+
+9. **Reject candidate or classification**  
+   The reader explicitly rejects an analyzer candidate, role, identity, merge, or split without necessarily supplying a replacement.
+
+10. **Contextual interpretation or presentation preference**  
+    Stored separately from an objective correction so preference data cannot be mistaken for linguistic gold.
+
+### Partial supervision and positive-example balance
+
+Teaching labels only the reviewed source region:
+
+```text
+selected corrected range → reviewed-corrected
+selected accepted range → reviewed-accepted
+explicitly rejected range/candidate → reviewed-rejected
+all other source ranges → unreviewed and ignored
+```
+
+Unreviewed output must never become positive, negative, accepted, rejected, or gold training data.
+
+Corpus reporting must monitor:
+
+```text
+reviewed-accepted count
+reviewed-corrected count
+reviewed-rejected count
+accepted-to-corrected ratio
+counts by role, candidate family, book, analyzer version, dictionary revision, and failure class
+```
+
+### Decision-comparison and failure taxonomy
+
+Every corrected record must identify the analyzer-selected structure, reader-preferred target, and affected competition.
+
+If the approved candidate was present in the original candidate set, save a ranking preference:
+
+```text
+reader-approved candidate or partition
+>
+analyzer-selected competing candidate or partition
+```
+
+If the approved candidate was absent, save a candidate-generation miss. Score tuning cannot select a candidate that does not exist.
+
+Required primary classifications:
+
+```text
+accepted-current
+candidate-generation-miss
+ranking-error
+hard-gate-error
+boundary-error
+role-error
+identity-error
+partition-optimization-error
+abstention-error
+unclassified
+```
+
+Secondary labels may identify specific families such as compound-candidate under-generation, dictionary-form coverage, grammar-host error, or protected-boundary conflict.
+
+### Final Teaching pipeline
+
+```text
+1. Analyze the sentence normally with the current immature analyzer.
+2. Capture immutable full layer, candidate, feature, score, conflict, selection, and Reader output.
+3. Resolve and validate the exact reviewed source range.
+4. Receive separate boundary, classification, judgment-type, confidence, and note assertions.
+5. Run the asserted target through existing analyzer layers for that occurrence only.
+6. Construct approved target spans with the same authoritative Reader-span builder and validators used by normal analysis.
+7. Compare the target against the original candidate set and selected partition.
+8. Classify generation, ranking, gate, boundary, role, identity, partition, or abstention outcome.
+9. Preview and validate the complete corpus record using a server-bound freshness token.
+10. Save the immutable observation, partial Teaching record, comparison, quality state, and lifecycle event.
+11. Optionally link an exact-occurrence operational correction for immediate Reader output.
+12. Do not create or activate a global rule.
+13. Keep initial records in test mode and excluded from tuning export.
+14. Later validate, review, approve, group, replay, and export the corpus for controlled tuning experiments.
+```
+
+### Three-store ownership model
+
+1. **Analyzer observation store**  
+   Immutable full analysis, normalized candidates, features, utility values, scores, conflicts, selection traces, dictionary identity, and digests.
+
+2. **Teaching corpus store**  
+   Partial assertions, approved targets, accepted-current labels, rejected decisions, decision comparisons, coverage, quality states, and history.
+
+3. **Operational correction store**  
+   Exact-occurrence active/inactive corrections used to improve the current Reader output.
+
+Operational status and training eligibility are independent. An operational correction may be active while its Teaching record is excluded or needs review. A retracted operational correction may retain a historically useful but explicitly excluded Teaching event.
+
+### Corpus quality and lifecycle states
+
+Required independent dimensions:
+
+```text
+corpus mode: test | production
+operational status: active | inactive
+review status: captured | needs-review | approved | excluded
+semantic status: confirmed | user-asserted-unconfirmed | ambiguous | conflict | not-applicable
+lifecycle status: active | retracted | superseded
+export status: excluded | eligible | exported
+```
+
+Initial policy:
+
+```text
+corpus mode = test
+export status = excluded
+production retention = paused
+```
+
+### Preview freshness and transaction requirements
+
+Preview must return a server-generated token bound to:
+
+```text
+sentence fingerprint
+AnalyzerDecisionSnapshot ID
+candidate-set digest
+dictionary revision
+correction revision
+assertion digest
+schema and policy versions
+```
+
+Save must reject stale Preview data. Persistence must use a durable operation/journal state or an equivalent atomic design so a crash cannot leave an active correction without its Teaching record or break a same-range replacement chain.
+
+### Future offline tuning pipeline
+
+Real tuning begins only after enough approved, diverse records exist.
+
+```text
+corpus validation
+→ schema and integrity filtering
+→ remove/exclude test, retracted, superseded, and unapproved records
+→ group by canonical lexical/grammar/name identity and source provenance
+→ assign leakage-safe train/development/frozen-test groups
+→ replay historical candidate sets and baseline decisions
+→ analyze candidate-generator recall
+→ build ranking and structured-partition preferences where the target existed
+→ improve candidate generation where the target was absent
+→ tune weights, bonuses, penalties, gates, thresholds, or partition policy
+→ evaluate boundary, role, identity, abstention, and regression metrics
+→ publish new versioned candidate/scoring/decision policy only after held-out improvement
+```
+
+Teaching saves never modify global production weights or rules directly.
+
+### Phase 8 Alpha roadmap
+
+#### Phase 8 Alpha 1 — Current analyzer observability audit
+
+- Inventory every current layer, candidate field, dictionary/KWJA evidence field, utility dimension, utility score, eligibility gate, resolver conflict, decision reason, rejected candidate, tie-breaker, and partition value.
+- Map where each value is computed and whether it is serialized.
+- Identify missing scoring observability without changing analyzer behavior.
+- Produce a field-by-field current-pipeline mapping and gap report.
+
+#### Phase 8 Alpha 2 — AnalyzerDecisionSnapshot v1
+
+- Formal schema, content digests, immutable raw-capture path, replay metadata, validators, and fixture snapshots.
+- Prove the raw observation excludes the new Teaching assertion and preserves current analyzer identity.
+
+#### Phase 8 Alpha 3 — TeachingDecisionRecord v1
+
+- Formal partial-supervision schema, separate assertions, approved target, candidate comparison, quality states, lifecycle, and optional operational link.
+- Include accepted-current positive labels and rejected-candidate labels.
+
+#### Phase 8 Alpha 4 — Use-case fixtures and executable schema validation
+
+- Vocabulary, compound, inflection, unknown lexical assertion, merge, split, Grammar, Function, Name, Unresolved, accept-current, and reject-candidate fixtures.
+- Validate exact reconstruction, partial masks, assertion preservation, original-candidate presence, and failure classification.
+
+#### Phase 8 Alpha 5 — Authoritative taught-range analysis
+
+- Reuse existing morphology, dictionary, KWJA, grammar, candidate, scoring, resolver, and Reader-policy modules for the asserted target.
+- No duplicate Teaching semantic engine and no global rule activation.
+
+#### Phase 8 Alpha 6 — Decision comparison and failure classification
+
+- Generate accepted-current, candidate-generation, ranking, gate, boundary, role, identity, partition, and abstention supervision.
+- Produce pairwise or structured preferences only when justified by the captured candidate set.
+
+#### Phase 8 Alpha 7 — Corpus persistence v2
+
+- Persist the three-store model, append-only lifecycle, content-addressed observations, schema versions, operation journal, and expanded integrity checks.
+- Keep legacy Phase 8.5/8.6 records in test/excluded state or clear them.
+
+#### Phase 8 Alpha 8 — Frontend Teaching workflow v2
+
+- Add `✓ Analyzer is correct`.
+- Separate boundary and classification controls.
+- Add reject-candidate/role actions.
+- Display concise analyzer choice, alternatives, target presence, and diagnosis.
+- Preserve exact offsets and stable EPUB provenance; never synthesize linguistic fields in the frontend.
+
+#### Phase 8 Alpha 9 — Freshness and transaction hardening
+
+- Preview token, stale-preview rejection, dictionary/correction revision binding, durable operation IDs, compensation history, and reconciliation.
+
+#### Phase 8 Alpha 10 — Review, approval, corpus reporting, and export eligibility
+
+- Test/production corpus separation, approval workflow, quality reports, bias monitoring, integrity gates, and safe export preparation.
+
+### Revised roadmap after Phase 8 Alpha
+
+- **Phase 8.7 — Corpus management and validated export:** filtering, grouped identity, duplicate control, JSONL/export projections, schema validation, and audit reports.
+- **Phase 8.8 — Read-only corpus analysis:** candidate recall, failure taxonomy, repeated patterns, responsible-stage analysis, and corpus balance.
+- **Phase 8.9 — Read-only tuning lab:** historical replay, candidate-generator experiments, ranking/scoring proposals, partial-mask metrics, grouped development/test comparison, and regression reports.
+- **Phase 8.10 — Phase 8 closeout:** end-to-end analyzer-native capture, accepted/corrected/rejected labels, persistence, review, export, replay, simulation, and regression verification.
+- **Later controlled tuning phase:** use an approved corpus to publish a new versioned analyzer policy only after held-out improvement.
+
+### Additional current operational findings
+
+- The dictionary runtime briefly presented a logically empty database while the SQLite file retained its large physical size. A validated Phase 7 backup restored the dictionary. The empty copy should remain preserved for forensic analysis. Git branch operations and the Phase 8.6 frontend package did not themselves modify the lexicon.
+- Existing experimental correction and annotation databases may be backed up and cleared before Phase 8 Alpha production capture. Clearing Teaching data must never delete `phase8_analysis_lexicon.sqlite3`.
+- Current raw/effective/post-correction snapshots, derived outcomes, and history remain useful prototypes but are not the final corpus contract.
+- “Validation complete” in the current UI means structural target detection only and must not be interpreted as semantic, identity, learning-policy, or export validation.
+
+### Phase 8 Alpha entry criteria
+
+Before implementation begins:
+
+- both repositories remain on `feature/phase8-teaching-annotations`;
+- Phase 8.6 source changes and this snapshot update are reviewed and committed;
+- real Teaching-data retention remains paused;
+- the dictionary is ready and non-zero;
+- experimental Teaching databases are test-only or cleared;
+- no narrow Vocabulary special case has been added.
+
+### Phase 8 Alpha closure criteria
+
+Phase 8 Alpha closes only when:
+
+- the current analyzer's full scoring and decision observability is documented;
+- AnalyzerDecisionSnapshot v1 and TeachingDecisionRecord v1 are executable, versioned contracts;
+- every supported use case has a passing fixture;
+- accepted-current positive examples are supported;
+- candidate-generation misses are distinguished from ranking failures;
+- the asserted target is processed through the existing analyzer pipeline for the current occurrence only;
+- the approved target uses the same Reader-span format and validators as normal output;
+- partial review masks prevent accidental labels outside the selected range;
+- Preview is freshness-bound and Save is durable;
+- corpus quality and export eligibility are explicit;
+- no Teaching Save modifies a global analyzer rule or weight;
+- future tuning can reconstruct what the analyzer saw, considered, scored, selected, and lost against the reader-approved target.
+
