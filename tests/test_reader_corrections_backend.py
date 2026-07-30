@@ -100,6 +100,35 @@ def main():
         assert restored_provenance == []
         assert rc.list_corrections() == []
         assert len(rc.list_corrections(True)) == 1
+        split_data = {
+            "sentence": "少年が走ってきた。",
+            "start": 5,
+            "end": 8,
+            "surface": "てきた",
+            "action": "split",
+            "splitOffsets": [6],
+            "scope": "occurrence",
+        }
+        split_preview = rc.preview(split_data, baseline)
+        assert [item["surface"] for item in split_preview["previewReaderSpans"]] == [
+            "少年", "が", "走っ", "て", "きた", "。"
+        ]
+        assert split_preview["previewReaderSpans"][3]["displayRole"] == "learnable-grammar"
+        split_saved = rc.save(split_data, baseline, "test", "1.1")
+        split_id = split_saved["correctionId"]
+        split_applied, split_provenance = rc.apply_active_corrections(split_data["sentence"], baseline)
+        assert [item["surface"] for item in split_applied] == ["少年", "が", "走っ", "て", "きた", "。"]
+        assert split_provenance[0]["action"] == "split"
+        assert len(rc.find_corrections(split_data["sentence"], start=5, end=8)) == 1
+        rc.deactivate(split_id)
+
+        for invalid_offsets in ([], [5], [8], [7, 6], [6, 6], [6.5]):
+            try:
+                rc.preview({**split_data, "splitOffsets": invalid_offsets}, baseline)
+            except ValueError:
+                pass
+            else:
+                raise AssertionError(f"Expected invalid split offsets: {invalid_offsets}")
 
     print("reader structural teaching backend tests passed")
 

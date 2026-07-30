@@ -143,8 +143,16 @@ def derive_structural_correction(
         raise ValueError("Structural teaching currently supports occurrence scope only")
     if action not in _ALLOWED_ACTIONS:
         raise ValueError("Unknown structural correction action")
+    split_offsets = data.get("splitOffsets") or []
     if action == "split":
-        raise ValueError("Split teaching is reserved for the frontend phase")
+        if not isinstance(split_offsets, list) or not split_offsets:
+            raise ValueError("Split requires at least one split offset")
+        if any(not isinstance(value, int) or isinstance(value, bool) for value in split_offsets):
+            raise ValueError("Split offsets must be integers")
+        if split_offsets != sorted(set(split_offsets)):
+            raise ValueError("Split offsets must be unique and sorted")
+        if any(value <= start or value >= end for value in split_offsets):
+            raise ValueError("Split offsets must fall strictly inside the selected range")
     if not isinstance(start, int) or not isinstance(end, int) or not (0 <= start < end <= len(text)):
         raise ValueError("Invalid correction range")
     if text[start:end] != surface:
@@ -218,6 +226,7 @@ def derive_structural_correction(
             "grammarFocusRanges": grammar_focus_ranges,
         },
         "readerSelection": reader_selection or {},
+        "splitOffsets": split_offsets if action == "split" else [],
         **_candidate_snapshot(start, end, reader_candidates),
     })
 
@@ -235,6 +244,7 @@ def derive_structural_correction(
         "grammarId": grammar_id,
         "hostLookupKey": host_lookup_key,
         "grammarFocusRanges": grammar_focus_ranges,
+        "splitOffsets": split_offsets if action == "split" else [],
         "unknownColorPolicy": "frequency" if role in {"lexical", "lexical-compound"} else None,
         "featureSnapshot": snapshot,
     }
@@ -278,6 +288,42 @@ def corrected_span(data: dict[str, Any], correction_id: str | None = None) -> di
     }
 
 
+def _split_corrected_spans(
+    text: str,
+    baseline: list[dict[str, Any]],
+    data: dict[str, Any],
+    correction_id: str | None,
+) -> list[dict[str, Any]]:
+    start, end = data["start"], data["end"]
+    overlaps = _aligned_overlaps(text, start, end, baseline)
+    boundaries = [start, *(data.get("splitOffsets") or []), end]
+    pieces: list[dict[str, Any]] = []
+    for piece_start, piece_end in zip(boundaries, boundaries[1:]):
+        if piece_start >= piece_end:
+            raise ValueError("Split cannot create an empty span")
+        source = next(
+            (item for item in overlaps if item["start"] <= piece_start and piece_end <= item["end"]),
+            None,
+        )
+        if source is None:
+            raise ValueError("Split boundary cannot cross an existing reader-span boundary")
+        piece = dict(source)
+        piece.update({
+            "start": piece_start,
+            "end": piece_end,
+            "surface": text[piece_start:piece_end],
+            "sourceLayer": "user-correction",
+            "projectionStatus": "user-corrected-preview" if not correction_id else "user-corrected",
+            "correctionId": correction_id,
+            "correctionScope": "occurrence",
+            "correctionAction": "split",
+        })
+        pieces.append(piece)
+    if "".join(item["surface"] for item in pieces) != text[start:end]:
+        raise ValueError("Split result does not reconstruct selected source")
+    return pieces
+
+
 def _replace_range(
     text: str,
     baseline: list[dict[str, Any]],
@@ -288,7 +334,12 @@ def _replace_range(
     _aligned_overlaps(text, start, end, baseline)
     left = [item for item in baseline if item["end"] <= start]
     right = [item for item in baseline if item["start"] >= end]
-    spans = left + [corrected_span(data, correction_id)] + right
+    replacement = (
+        _split_corrected_spans(text, baseline, data, correction_id)
+        if data.get("action") == "split"
+        else [corrected_span(data, correction_id)]
+    )
+    spans = left + replacement + right
     from .reader_projection import validate_reader_spans
     validate_reader_spans(text, spans)
     return spans
@@ -396,10 +447,32 @@ def _row_to_derived(row: dict[str, Any]) -> dict[str, Any]:
         "grammarId": row.get("grammar_id"),
         "hostLookupKey": host_keys[0] if len(host_keys) == 1 else None,
         "grammarFocusRanges": evidence.get("grammarFocusRanges") or [],
+        "splitOffsets": snapshot.get("splitOffsets") or [],
         "unknownColorPolicy": row.get("unknown_color_policy"),
         "featureSnapshot": snapshot,
     }
 
+
+
+def find_corrections(
+    sentence: str,
+    *,
+    start: int | None = None,
+    end: int | None = None,
+    include_inactive: bool = False,
+) -> list[dict[str, Any]]:
+    fingerprint = sentence_fingerprint(sentence)
+    records = list_corrections(include_inactive=include_inactive)
+    result = []
+    for record in records:
+        if record.get("sentence_fingerprint") != fingerprint or record.get("sentence_text") != sentence:
+            continue
+        if start is not None and record.get("end", -1) <= start:
+            continue
+        if end is not None and record.get("start", -1) >= end:
+            continue
+        result.append(record)
+    return result
 
 
 def correction_revision() -> str:
@@ -477,3 +550,37 @@ def deactivate(correction_id: str) -> dict[str, Any]:
     if cursor.rowcount != 1:
         raise ValueError("Active correction not found")
     return {"correctionId": correction_id, "active": False, "deactivatedAt": now}
+
+
+
+def preflight_correction_range(sentence: str, start: int, end: int) -> dict[str, Any]:
+    """Classify range conflicts before either persistent store is mutated."""
+    same_range = []
+    conflicts = []
+    for row in find_corrections(sentence, start=start, end=end, include_inactive=False):
+        if row["start"] == start and row["end"] == end:
+            same_range.append(row["correction_id"])
+        elif row["start"] < end and start < row["end"]:
+            conflicts.append({
+                "correctionId": row["correction_id"], "start": row["start"],
+                "end": row["end"], "surface": row["surface"],
+            })
+    if conflicts:
+        item = conflicts[0]
+        raise ValueError(
+            f"Selected range overlaps active correction {item['correctionId']} "
+            f"at {item['start']}..{item['end']}; Undo it before saving this correction"
+        )
+    return {"sameRangeCorrectionIds": same_range, "conflicts": []}
+
+
+def reactivate(correction_id: str) -> dict[str, Any]:
+    """Compensation helper used only when a coordinated Save fails."""
+    with _lock, _db() as con:
+        cursor = con.execute(
+            "UPDATE reader_corrections SET deactivated_at=NULL WHERE correction_id=? AND deactivated_at IS NOT NULL",
+            (correction_id,),
+        )
+    if cursor.rowcount != 1:
+        raise ValueError("Inactive correction not found")
+    return {"correctionId": correction_id, "active": True}
