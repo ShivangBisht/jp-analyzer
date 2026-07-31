@@ -55,6 +55,10 @@ def _baseline(record: dict[str, Any]) -> dict[str, Any]:
     prediction = dict(expected)
     if failure in {"candidate-generation-miss", "hard-gate-error"}:
         prediction["candidatePresent"] = False
+        prediction["boundary"] = None
+        prediction["classification"] = None
+        prediction["identity"] = None
+        prediction["partitionCorrect"] = False
     if failure in {"boundary-error", "partition-optimization-error"}:
         prediction["boundary"] = [None, None]
         prediction["partitionCorrect"] = False
@@ -69,26 +73,27 @@ def _baseline(record: dict[str, Any]) -> dict[str, Any]:
     return prediction
 
 
-def _score(expected: dict[str, Any], prediction: dict[str, Any]) -> dict[str, int]:
+def _score(expected: dict[str, Any], prediction: dict[str, Any]) -> dict[str, int | None]:
+    candidate_present = bool(prediction.get("candidatePresent"))
     return {
-        "candidateGenerationRecall": int(bool(prediction.get("candidatePresent"))),
-        "boundaryAccuracy": int(prediction.get("boundary") == expected.get("boundary")),
-        "classificationAccuracy": int(prediction.get("classification") == expected.get("classification")),
-        "identityAccuracy": int(prediction.get("identity") == expected.get("identity")),
+        "candidateGenerationRecall": int(candidate_present),
+        "boundaryAccuracy": int(prediction.get("boundary") == expected.get("boundary")) if candidate_present else None,
+        "classificationAccuracy": int(prediction.get("classification") == expected.get("classification")) if candidate_present else None,
+        "identityAccuracy": int(prediction.get("identity") == expected.get("identity")) if candidate_present else None,
         "abstentionAccuracy": int(bool(prediction.get("abstained")) == bool(expected.get("abstained"))),
-        "partitionAccuracy": int(bool(prediction.get("partitionCorrect")) == bool(expected.get("partitionCorrect"))),
+        "partitionAccuracy": int(candidate_present and bool(prediction.get("partitionCorrect")) == bool(expected.get("partitionCorrect"))),
     }
 
 
 def _aggregate(rows: list[dict[str, Any]]) -> dict[str, Any]:
     count = len(rows)
-    return {
-        "recordCount": count,
-        "metrics": {
-            name: (sum(row["scores"][name] for row in rows) / count if count else None)
-            for name in METRIC_NAMES
-        },
-    }
+    metrics: dict[str, float | None] = {}
+    metric_counts: dict[str, int] = {}
+    for name in METRIC_NAMES:
+        values = [row["scores"][name] for row in rows if row["scores"][name] is not None]
+        metric_counts[name] = len(values)
+        metrics[name] = sum(values) / len(values) if values else None
+    return {"recordCount": count, "metricCounts": metric_counts, "metrics": metrics}
 
 
 def build_offline_experiment(
@@ -138,7 +143,14 @@ def build_offline_experiment(
         for name in METRIC_NAMES:
             before = before_by_split[split]["metrics"][name]
             after = after_by_split[split]["metrics"][name]
-            delta = None if before is None or after is None else after - before
+            if before is None and after is not None:
+                delta = after
+            elif before is not None and after is None:
+                delta = -before
+            elif before is None and after is None:
+                delta = None
+            else:
+                delta = after - before
             deltas[split][name] = delta
             if split == "test" and delta is not None and delta < -float(selected_policy["maximumTestRegression"]):
                 regressions.append({"split": split, "metric": name, "delta": delta})

@@ -62,12 +62,18 @@ def corpus_quality_summary(db_path=None):
         states.append({"record":record,"quality":quality})
     counts={state:0 for state in sorted(QUALITY_STATES)}
     duplicates={}; conflicts=[]
+    active_states=[]
     for item in states:
         counts[item["quality"]["quality_status"]]+=1
-        record=item["record"]; key=(record.get("sourceSentence"),json.dumps((record.get("assertions") or {}).get("boundary"),sort_keys=True,ensure_ascii=False))
+        record=item["record"]
+        if (record.get("lifecycle") or {}).get("status") != "active":
+            continue
+        active_states.append(item)
+        key=(record.get("sourceSentence"),json.dumps((record.get("assertions") or {}).get("boundary"),sort_keys=True,ensure_ascii=False))
         duplicates.setdefault(key,[]).append(record)
     duplicate_groups=[{"recordIds":[x["recordId"] for x in group],"count":len(group)} for group in duplicates.values() if len(group)>1]
     for group in duplicates.values():
         judgments={x.get("judgment") for x in group}; classifications={json.dumps((x.get("assertions") or {}).get("classification"),sort_keys=True,ensure_ascii=False) for x in group}
         if len(judgments)>1 or len(classifications)>1: conflicts.append({"recordIds":[x["recordId"] for x in group],"judgments":sorted(judgments)})
-    return {"recordCount":len(records),"byQualityStatus":counts,"approvedCount":counts["approved"],"needsReviewCount":counts["needs-review"],"duplicateGroupCount":len(duplicate_groups),"duplicateGroups":duplicate_groups,"conflictCount":len(conflicts),"conflicts":conflicts,"exportEligibleCount":counts["approved"],"exportEnabled":False}
+    active_approved_count=sum(item["quality"]["quality_status"]=="approved" for item in active_states)
+    return {"recordCount":len(records),"activeRecordCount":len(active_states),"byQualityStatus":counts,"approvedCount":counts["approved"],"needsReviewCount":counts["needs-review"],"duplicateGroupCount":len(duplicate_groups),"duplicateGroups":duplicate_groups,"conflictCount":len(conflicts),"conflicts":conflicts,"exportEligibleCount":active_approved_count,"exportEnabled":False}
