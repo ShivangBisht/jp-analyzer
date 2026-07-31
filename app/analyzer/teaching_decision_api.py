@@ -14,6 +14,7 @@ from .teaching_decision_store import (
     save_snapshot,
     supersede_record,
 )
+from .teaching_review_management import diagnose_record, review_summary
 
 router = APIRouter(prefix="/teaching-decisions", tags=["teaching-decisions"])
 
@@ -119,6 +120,18 @@ def listing(
         ),
         "exportEnabled": False,
     }
+
+
+@router.get("/summary")
+def summary():
+    return review_summary()
+
+@router.get("/{record_id}/diagnosis")
+def diagnosis(record_id: str):
+    try:
+        return diagnose_record(get_record(record_id))
+    except ValueError as exc:
+        raise HTTPException(404, str(exc)) from exc
 
 @router.get("/{record_id}")
 def get(record_id: str):
