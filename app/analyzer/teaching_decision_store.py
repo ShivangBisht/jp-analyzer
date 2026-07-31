@@ -57,6 +57,22 @@ def save_snapshot(snapshot: dict[str, Any], db_path=None) -> dict[str, Any]:
             raise ValueError("snapshot ID already exists with different digest")
         con.execute("INSERT OR IGNORE INTO decision_snapshots VALUES(?,?,?,?,?)", (sid, digest, sentence_sha, _json(snapshot), _now()))
     return {"snapshotId": sid, "contentDigest": digest, "inserted": row is None}
+    
+def get_snapshot(snapshot_id: str, db_path=None) -> dict[str, Any]:
+    with _lock, _db(db_path) as con:
+        row = con.execute(
+            """
+            SELECT payload_json
+            FROM decision_snapshots
+            WHERE snapshot_id = ?
+            """,
+            (snapshot_id,),
+        ).fetchone()
+
+    if row is None:
+        raise ValueError("AnalyzerDecisionSnapshot not found")
+
+    return json.loads(row["payload_json"])
 
 
 def persist_record(record: dict[str, Any], *, snapshot: dict[str, Any] | None = None, db_path=None) -> dict[str, Any]:
