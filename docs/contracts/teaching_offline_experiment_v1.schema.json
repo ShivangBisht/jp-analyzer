@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TeachingOfflineExperiment.v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "mode",
+    "corpusDigest",
+    "before",
+    "after",
+    "deltas",
+    "passed",
+    "artifactDigest"
+  ],
+  "properties": {
+    "schema": {
+      "const": "TeachingOfflineExperiment.v1"
+    },
+    "mode": {
+      "const": "offline-evaluation"
+    },
+    "liveAnalyzerMutationEnabled": {
+      "const": false
+    },
+    "dictionaryMutationEnabled": {
+      "const": false
+    },
+    "deploymentEnabled": {
+      "const": false
+    }
+  }
+}
