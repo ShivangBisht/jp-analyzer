@@ -31,8 +31,16 @@ def _split(record_id: str) -> str:
 
 
 def _record_digest_valid(record: dict[str, Any]) -> bool:
+    # The store hydrates immutable records with runtime-only audit fields.
+    # Validate only the formal TeachingDecisionRecord payload without changing
+    # the caller's object or removing the audit envelope from record APIs.
+    formal_record = {
+        key: value
+        for key, value in record.items()
+        if key not in {"storeEvents"}
+    }
     try:
-        validate_teaching_decision_record(record)
+        validate_teaching_decision_record(formal_record)
         return True
     except (TypeError, ValueError):
         return False
