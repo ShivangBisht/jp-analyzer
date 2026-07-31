@@ -6,6 +6,7 @@ from .layers.dictionary_api import router as dictionary_sync_router
 from .layers.dictionary_evidence_api import router as dictionary_evidence_router
 from .reader_corrections_api import router as reader_corrections_router
 from .teaching_decision_api import router as teaching_decision_router
+from .teaching_quality_api import router as teaching_quality_router
 
 from .health import health_report
 from .pipeline import analyze
@@ -27,6 +28,7 @@ app.include_router(dictionary_sync_router)
 app.include_router(dictionary_evidence_router)
 app.include_router(reader_corrections_router)
 app.include_router(teaching_decision_router)
+app.include_router(teaching_quality_router)
 
 
 @app.get("/health")
