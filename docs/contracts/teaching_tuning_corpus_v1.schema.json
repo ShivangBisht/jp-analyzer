@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "TeachingTuningCorpus.v1",
+  "title": "TeachingTuningCorpus.v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "profile",
+    "mode",
+    "examples",
+    "packageDigest"
+  ],
+  "properties": {
+    "schema": {
+      "const": "TeachingTuningCorpus.v1"
+    },
+    "profile": {
+      "enum": [
+        "private-local",
+        "redacted-shareable"
+      ]
+    },
+    "mode": {
+      "const": "corpus-packaging-only"
+    },
+    "tuningEnabled": {
+      "const": false
+    },
+    "activationEnabled": {
+      "const": false
+    },
+    "deploymentEnabled": {
+      "const": false
+    },
+    "includesSqliteBytes": {
+      "const": false
+    },
+    "includesOperationalCorrections": {
+      "const": false
+    },
+    "packageDigest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}
