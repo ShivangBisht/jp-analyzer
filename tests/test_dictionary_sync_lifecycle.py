@@ -11,6 +11,24 @@ import pytest
 ORIGINAL_DB_PATH = dictionary_store.DB_PATH
 
 
+@pytest.fixture(scope="module", autouse=True)
+def isolated_dictionary_database():
+    directory = Path(
+        tempfile.mkdtemp(
+            prefix="jp-analyzer-dictionary-lifecycle-"
+        )
+    )
+
+    dictionary_store.DB_PATH = (
+        directory / "dictionary-lifecycle.sqlite3"
+    )
+
+    try:
+        yield
+    finally:
+        dictionary_store.DB_PATH = ORIGINAL_DB_PATH
+
+
 def entry(
     term: str,
     dictionary_id: str,
