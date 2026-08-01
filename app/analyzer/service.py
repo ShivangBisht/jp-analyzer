@@ -10,6 +10,7 @@ from .teaching_quality_api import router as teaching_quality_router
 from .teaching_corpus_export_api import router as teaching_corpus_export_router
 from .teaching_offline_evaluation_api import router as teaching_offline_evaluation_router
 from .teaching_controlled_activation_api import router as teaching_controlled_activation_router
+from .teaching_portability_api import router as teaching_portability_router
 
 from .health import health_report
 from .pipeline import analyze
@@ -35,6 +36,7 @@ app.include_router(teaching_quality_router)
 app.include_router(teaching_corpus_export_router)
 app.include_router(teaching_offline_evaluation_router)
 app.include_router(teaching_controlled_activation_router)
+app.include_router(teaching_portability_router)
 
 
 @app.get("/health")
