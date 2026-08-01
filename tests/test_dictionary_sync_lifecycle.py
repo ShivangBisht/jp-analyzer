@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import sqlite3
 import tempfile
@@ -7,6 +7,7 @@ from pathlib import Path
 from app.analyzer.layers import dictionary_store
 
 
+import pytest
 ORIGINAL_DB_PATH = dictionary_store.DB_PATH
 
 
