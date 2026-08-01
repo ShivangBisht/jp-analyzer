@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "TeachingEvidenceTransfer.v1",
+  "title": "TeachingEvidenceTransfer.v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "mode",
+    "sourceStoreIdentity",
+    "snapshots",
+    "records",
+    "decisionEvents",
+    "qualityStates",
+    "qualityEvents",
+    "counts",
+    "packageDigest"
+  ],
+  "properties": {
+    "schema": {
+      "const": "TeachingEvidenceTransfer.v1"
+    },
+    "mode": {
+      "const": "teaching-evidence-only"
+    },
+    "includesOperationalCorrections": {
+      "const": false
+    },
+    "includesDictionary": {
+      "const": false
+    },
+    "tuningEnabled": {
+      "const": false
+    },
+    "activationEnabled": {
+      "const": false
+    },
+    "packageDigest": {
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}
