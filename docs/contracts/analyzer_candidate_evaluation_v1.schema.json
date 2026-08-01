@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AnalyzerCandidateEvaluation.v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "mode"
+  ],
+  "properties": {
+    "schema": {
+      "const": "AnalyzerCandidateEvaluation.v1"
+    },
+    "mode": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}
