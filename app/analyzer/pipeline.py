@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from threading import RLock
+
 from .layers.evidence_gate import (
     VERSION as CONSOLIDATED_ENGINE_VERSION,
     analyze_integrated_alpha2 as analyze_layers,
@@ -11,6 +13,9 @@ from .engine import AnalyzerEngine
 from .runtime import get_runtime
 from .version import ANALYZER_VERSION, ENGINE_CONTRACT_VERSION
 from .analyzer_decision_snapshot import build_analyzer_decision_snapshot
+
+
+_analysis_lock = RLock()
 
 
 def _engine() -> AnalyzerEngine:
@@ -40,7 +45,8 @@ def analyze_full(
         raw_knp=raw_knp,
         kwja_executable=kwja_executable,
     )
-    return _engine().analyze_full(text, nlp, options=options)
+    with _analysis_lock:
+        return _engine().analyze_full(text, nlp, options=options)
 
 
 def analyze(

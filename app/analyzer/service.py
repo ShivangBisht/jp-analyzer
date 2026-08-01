@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Query
+﻿from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -12,6 +12,7 @@ from .teaching_offline_evaluation_api import router as teaching_offline_evaluati
 from .teaching_controlled_activation_api import router as teaching_controlled_activation_router
 from .teaching_portability_api import router as teaching_portability_router
 from .teaching_tuning_corpus_api import router as teaching_tuning_corpus_router
+from .teaching_guided_review_api import router as teaching_guided_review_router
 
 from .health import health_report
 from .pipeline import analyze
@@ -39,6 +40,7 @@ app.include_router(teaching_offline_evaluation_router)
 app.include_router(teaching_controlled_activation_router)
 app.include_router(teaching_portability_router)
 app.include_router(teaching_tuning_corpus_router)
+app.include_router(teaching_guided_review_router)
 
 
 @app.get("/health")
@@ -53,3 +55,4 @@ def analyze_endpoint(
     dictionary: bool = Query(True),
 ):
     return analyze(req.text, debug=debug, use_dictionary=dictionary)
+
