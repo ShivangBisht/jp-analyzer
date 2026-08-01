@@ -14,6 +14,7 @@ from .teaching_portability_api import router as teaching_portability_router
 from .teaching_tuning_corpus_api import router as teaching_tuning_corpus_router
 from .teaching_guided_review_api import router as teaching_guided_review_router
 from .teaching_corpus_governance_api import router as teaching_corpus_governance_router
+from .teaching_tuning_handoff_api import router as teaching_tuning_handoff_router
 
 from .health import health_report
 from .pipeline import analyze
@@ -43,6 +44,7 @@ app.include_router(teaching_portability_router)
 app.include_router(teaching_tuning_corpus_router)
 app.include_router(teaching_guided_review_router)
 app.include_router(teaching_corpus_governance_router)
+app.include_router(teaching_tuning_handoff_router)
 
 
 @app.get("/health")
