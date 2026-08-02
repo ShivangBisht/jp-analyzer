@@ -45,9 +45,28 @@ class ApplicationSupervisor:
             self.snapshot.components[name] = ComponentStatus(name, required)
         self.stopping = False
     def save(self) -> None:
-        required = [x for x in self.snapshot.components.values() if x.required]
-        self.snapshot.overall_status = "failed" if any(x.state == "failed" for x in required) else ("ready" if all(x.state == "ready" for x in required) else "starting")
+        required = [
+            item
+            for item in self.snapshot.components.values()
+            if item.required
+        ]
+        shutdown_reason = self.snapshot.diagnostics.get("shutdownReason")
+        if shutdown_reason:
+            self.snapshot.overall_status = "stopped"
+        elif any(item.state == "failed" for item in required):
+            self.snapshot.overall_status = "failed"
+        elif all(item.state == "ready" for item in required):
+            self.snapshot.overall_status = "ready"
+        else:
+            self.snapshot.overall_status = "starting"
         write_snapshot(self.status_path, self.snapshot.to_dict())
+
+    def finalize_shutdown_status(self, reason: str) -> None:
+        for item in self.snapshot.components.values():
+            item.state = "stopped"
+            item.pid = None
+        self.snapshot.diagnostics["shutdownReason"] = reason
+        self.save()
     def fail(self, code: str, message: str, component: str, detail: str | None = None) -> bool:
         self.snapshot.problems.append(Problem(code, message, component, True, detail)); item = self.snapshot.components[component]
         item.state, item.detail = "failed", message; self.save(); return False
@@ -130,7 +149,13 @@ class ApplicationSupervisor:
                     service_probe_at = now + 5
             return 0
         finally:
-            self.processes.stop_all(); self.lock.release(); self.manifest_path.unlink(missing_ok=True); self.save()
+            self.processes.stop_all()
+            self.lock.release()
+            self.manifest_path.unlink(missing_ok=True)
+            if self.stopping:
+                self.finalize_shutdown_status("user-requested")
+            else:
+                self.save()
 
 def main() -> int:
     repo = Path(__file__).resolve().parents[2]
