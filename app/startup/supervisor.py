@@ -95,8 +95,17 @@ class ApplicationSupervisor:
             if not self.validate() or not self.ensure_analyzer() or not self.ensure_frontend(): return 1
             self.probe_optional()
             if self.config.open_browser: open_application(self.config.frontend_url)
+            heartbeat_at = 0.0
+            optional_probe_at = 0.0
             while not self.stopping:
                 time.sleep(1)
+                now = time.monotonic()
+                if now >= heartbeat_at:
+                    self.save()
+                    heartbeat_at = now + 5
+                if now >= optional_probe_at:
+                    self.probe_optional()
+                    optional_probe_at = now + 10
                 for item in self.processes.owned:
                     if item.process.poll() is not None: return self.fail("CHILD_EXITED", f"{item.name} exited unexpectedly.", "analyzer" if item.name == "jp-analyzer" else "frontend", str(item.process.returncode))
             return 0
