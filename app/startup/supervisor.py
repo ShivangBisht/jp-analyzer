@@ -11,10 +11,14 @@ from .discovery import tcp_port_open
 from .health import probe, wait_for
 from .instance_lock import InstanceLock
 from .models import ComponentStatus, Problem, StartupSnapshot
+from .ownership import Service, identity, listener_pid, service_ok, write_manifest
 from .process_manager import ProcessManager
 from .windows import local_app_data_dir, open_application
 
 FRONTEND_IDENTITY = "JapaneseNovelMiner"
+
+def shutdown_requested(path: Path) -> bool:
+    return path.is_file()
 
 def _compatible_analyzer(body):
     return isinstance(body, dict) and isinstance(body.get("dictionary") or body.get("dictionaryStatus"), dict)
@@ -30,8 +34,12 @@ class ApplicationSupervisor:
             if created: self.config = load_config(analyzer_repo, created)
         self.instance_id = str(uuid.uuid4()); self.runtime_dir = local_app_data_dir()
         self.status_path = self.runtime_dir / "startup-status.json"
+        self.manifest_path = self.runtime_dir / "owned-processes.json"
+        self.shutdown_request_path = self.runtime_dir / "shutdown.request"
+        self.shutdown_request_path.unlink(missing_ok=True)
         self.lock = InstanceLock(self.runtime_dir / "launcher.lock", self.instance_id)
         self.processes = ProcessManager(self.runtime_dir / "logs")
+        self.services = {}
         self.snapshot = StartupSnapshot(launcher_instance_id=self.instance_id, diagnostics={**self.config.diagnostics(), "runtimeDirectory": str(self.runtime_dir), "statusFile": str(self.status_path), "logDirectory": str(self.runtime_dir / "logs")})
         for name, required in (("analyzer", True), ("dictionary", True), ("kwja", True), ("frontend", True), ("voicevox", False), ("ankiConnect", False)):
             self.snapshot.components[name] = ComponentStatus(name, required)
@@ -63,6 +71,12 @@ class ApplicationSupervisor:
         else:
             item.state = "failed"; item.detail = "Dictionary is not ready or requires recovery."
             self.snapshot.problems.append(Problem("DICTIONARY_NOT_READY", item.detail, "dictionary", True))
+    def _record_service(self, name, owned, port, repo, url, kind):
+        pid = listener_pid(port); current = identity(pid) if pid else None
+        self.services[name] = Service(name, owned.process.pid, pid, port, str(repo.resolve()), url, kind, current.created if current else None)
+        write_manifest(self.manifest_path, self.instance_id, os.getpid(), list(self.services.values()))
+    def required_services_healthy(self):
+        return service_ok("analyzer", self.config.analyzer_url + "/health") and service_ok("frontend", self.config.frontend_identity_url)
     def ensure_analyzer(self) -> bool:
         item = self.snapshot.components["analyzer"]; item.url = self.config.analyzer_url
         result = probe(self.config.analyzer_url + "/health")
@@ -74,7 +88,7 @@ class ApplicationSupervisor:
         owned = self.processes.start("jp-analyzer", command, self.config.analyzer_repo, env); item.pid = owned.process.pid
         result = wait_for(self.config.analyzer_url + "/health", self.config.analyzer_timeout_seconds, owned.process)
         if not result.ok or not isinstance(result.body, dict): return self.fail("ANALYZER_START_FAILED", "JP Analyzer did not become ready.", "analyzer", result.error)
-        item.state, item.detail = "ready", "Started by launcher."; self.apply_health(result.body); self.save(); return True
+        item.state, item.detail = "ready", "Started by launcher."; self.apply_health(result.body); self._record_service("analyzer", owned, self.config.analyzer_port, self.config.analyzer_repo, self.config.analyzer_url + "/health", "analyzer"); self.save(); return True
     def ensure_frontend(self) -> bool:
         item = self.snapshot.components["frontend"]; item.url = self.config.frontend_url
         identity = probe(self.config.frontend_identity_url)
@@ -83,7 +97,7 @@ class ApplicationSupervisor:
         item.state = "starting"; self.save(); owned = self.processes.start("novel-audio-miner", list(self.config.frontend_command), self.config.frontend_repo, dict(os.environ)); item.pid = owned.process.pid
         result = wait_for(self.config.frontend_identity_url, self.config.frontend_timeout_seconds, owned.process)
         if not result.ok or not _compatible_frontend(result.body): return self.fail("FRONTEND_START_FAILED", "Novel Audio Miner did not become ready.", "frontend", result.error)
-        item.state, item.detail = "ready", "Started by launcher."; self.save(); return True
+        item.state, item.detail = "ready", "Started by launcher."; self._record_service("frontend", owned, self.config.frontend_port, self.config.frontend_repo, self.config.frontend_identity_url, "frontend"); self.save(); return True
     def probe_optional(self) -> None:
         for name, url in (("voicevox", "http://127.0.0.1:50021/version"), ("ankiConnect", "http://127.0.0.1:8765")):
             result = probe(url); item = self.snapshot.components[name]; item.url = url; item.state = "ready" if result.ok else "degraded"; item.detail = "Available." if result.ok else "Optional service unavailable."
@@ -97,8 +111,13 @@ class ApplicationSupervisor:
             if self.config.open_browser: open_application(self.config.frontend_url)
             heartbeat_at = 0.0
             optional_probe_at = 0.0
+            service_probe_at = 0.0
             while not self.stopping:
                 time.sleep(1)
+                if shutdown_requested(self.shutdown_request_path):
+                    self.shutdown_request_path.unlink(missing_ok=True)
+                    self.stopping = True
+                    continue
                 now = time.monotonic()
                 if now >= heartbeat_at:
                     self.save()
@@ -106,14 +125,23 @@ class ApplicationSupervisor:
                 if now >= optional_probe_at:
                     self.probe_optional()
                     optional_probe_at = now + 10
-                for item in self.processes.owned:
-                    if item.process.poll() is not None: return self.fail("CHILD_EXITED", f"{item.name} exited unexpectedly.", "analyzer" if item.name == "jp-analyzer" else "frontend", str(item.process.returncode))
+                if now >= service_probe_at:
+                    if not self.required_services_healthy(): return self.fail("REQUIRED_SERVICE_LOST", "A required application service stopped responding.", "analyzer")
+                    service_probe_at = now + 5
             return 0
         finally:
-            self.processes.stop_all(); self.lock.release(); self.save()
+            self.processes.stop_all(); self.lock.release(); self.manifest_path.unlink(missing_ok=True); self.save()
 
 def main() -> int:
     repo = Path(__file__).resolve().parents[2]
     config = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else None
-    return ApplicationSupervisor(repo, config).run()
+    supervisor = ApplicationSupervisor(repo, config)
+    try:
+        return supervisor.run()
+    except Exception as error:
+        from .instance_lock import InstanceLockError
+        if isinstance(error, InstanceLockError):
+            open_application(supervisor.config.frontend_url)
+            return 0
+        raise
 if __name__ == "__main__": raise SystemExit(main())
