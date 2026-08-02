@@ -13,7 +13,7 @@ def test_snapshot_contract():
 def test_machine_local_config(tmp_path: Path):
     analyzer, frontend, kwja = tmp_path / "JP analyzer", tmp_path / "novel-audio-miner", tmp_path / "kwja.exe"
     python = analyzer / ".venv" / "Scripts" / "python.exe"
-    frontend.mkdir(); python.parent.mkdir(parents=True); python.write_text(""); kwja.write_text("")
+    frontend.mkdir(); (frontend / "package.json").write_text("{}", encoding="utf-8"); python.parent.mkdir(parents=True); python.write_text(""); kwja.write_text("")
     config = analyzer / "startup.json"; config.write_text(json.dumps({"schema": SCHEMA, "frontend": {"repository": str(frontend)}, "kwja": {"executable": str(kwja)}, "startup": {"openBrowser": False}}))
     loaded = load_config(analyzer, config)
     assert loaded.frontend_repo == frontend.resolve() and loaded.kwja_executable == kwja.resolve() and not loaded.open_browser
@@ -29,6 +29,7 @@ def test_frontend_url_keeps_root_slash(tmp_path: Path):
     frontend = tmp_path / "novel-audio-miner"
     python = analyzer / ".venv" / "Scripts" / "python.exe"
     frontend.mkdir(parents=True)
+    (frontend / "package.json").write_text("{}", encoding="utf-8")
     python.parent.mkdir(parents=True)
     python.write_text("")
     config = analyzer / "startup.json"

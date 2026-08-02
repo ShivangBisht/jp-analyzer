@@ -5,22 +5,34 @@ import sys
 import time
 import uuid
 from pathlib import Path
-from .config import load_config
+from .config import initialize_local_config, load_config
 from .diagnostics import write_snapshot
+from .discovery import tcp_port_open
 from .health import probe, wait_for
 from .instance_lock import InstanceLock
 from .models import ComponentStatus, Problem, StartupSnapshot
 from .process_manager import ProcessManager
 from .windows import local_app_data_dir, open_application
 
+FRONTEND_IDENTITY = "JapaneseNovelMiner"
+
+def _compatible_analyzer(body):
+    return isinstance(body, dict) and isinstance(body.get("dictionary") or body.get("dictionaryStatus"), dict)
+
+def _compatible_frontend(body):
+    return isinstance(body, dict) and body.get("application") == FRONTEND_IDENTITY
+
 class ApplicationSupervisor:
     def __init__(self, analyzer_repo: Path, config_path: Path | None = None):
         self.config = load_config(analyzer_repo, config_path)
+        if config_path is None and self.config.config_path is None:
+            created = initialize_local_config(self.config)
+            if created: self.config = load_config(analyzer_repo, created)
         self.instance_id = str(uuid.uuid4()); self.runtime_dir = local_app_data_dir()
         self.status_path = self.runtime_dir / "startup-status.json"
         self.lock = InstanceLock(self.runtime_dir / "launcher.lock", self.instance_id)
         self.processes = ProcessManager(self.runtime_dir / "logs")
-        self.snapshot = StartupSnapshot(launcher_instance_id=self.instance_id)
+        self.snapshot = StartupSnapshot(launcher_instance_id=self.instance_id, diagnostics={**self.config.diagnostics(), "runtimeDirectory": str(self.runtime_dir), "statusFile": str(self.status_path), "logDirectory": str(self.runtime_dir / "logs")})
         for name, required in (("analyzer", True), ("dictionary", True), ("kwja", True), ("frontend", True), ("voicevox", False), ("ankiConnect", False)):
             self.snapshot.components[name] = ComponentStatus(name, required)
         self.stopping = False
@@ -54,8 +66,9 @@ class ApplicationSupervisor:
     def ensure_analyzer(self) -> bool:
         item = self.snapshot.components["analyzer"]; item.url = self.config.analyzer_url
         result = probe(self.config.analyzer_url + "/health")
-        if result.ok and isinstance(result.body, dict):
+        if result.ok and _compatible_analyzer(result.body):
             item.state, item.detail = "ready", "Reused running analyzer."; self.apply_health(result.body); self.save(); return True
+        if tcp_port_open(self.config.analyzer_host, self.config.analyzer_port): return self.fail("ANALYZER_PORT_CONFLICT", f"Port {self.config.analyzer_port} is occupied by an incompatible service.", "analyzer", result.error)
         item.state = "starting"; self.save(); env = dict(os.environ); env["KWJA_EXE"] = str(self.config.kwja_executable)
         command = [str(self.config.analyzer_python), "-m", "uvicorn", "app.analyzer.service:app", "--host", self.config.analyzer_host, "--port", str(self.config.analyzer_port)]
         owned = self.processes.start("jp-analyzer", command, self.config.analyzer_repo, env); item.pid = owned.process.pid
@@ -64,10 +77,12 @@ class ApplicationSupervisor:
         item.state, item.detail = "ready", "Started by launcher."; self.apply_health(result.body); self.save(); return True
     def ensure_frontend(self) -> bool:
         item = self.snapshot.components["frontend"]; item.url = self.config.frontend_url
-        if probe(self.config.frontend_url, accept="text/html,*/*;q=0.8").ok: item.state, item.detail = "ready", "Reused running frontend."; self.save(); return True
+        identity = probe(self.config.frontend_identity_url)
+        if identity.ok and _compatible_frontend(identity.body): item.state, item.detail = "ready", "Reused compatible running frontend."; self.save(); return True
+        if tcp_port_open(self.config.frontend_host, self.config.frontend_port): return self.fail("FRONTEND_PORT_CONFLICT", f"Port {self.config.frontend_port} is occupied by an incompatible service.", "frontend", identity.error)
         item.state = "starting"; self.save(); owned = self.processes.start("novel-audio-miner", list(self.config.frontend_command), self.config.frontend_repo, dict(os.environ)); item.pid = owned.process.pid
-        result = wait_for(self.config.frontend_url, self.config.frontend_timeout_seconds, owned.process, accept="text/html,*/*;q=0.8")
-        if not result.ok: return self.fail("FRONTEND_START_FAILED", "Novel Audio Miner did not become ready.", "frontend", result.error)
+        result = wait_for(self.config.frontend_identity_url, self.config.frontend_timeout_seconds, owned.process)
+        if not result.ok or not _compatible_frontend(result.body): return self.fail("FRONTEND_START_FAILED", "Novel Audio Miner did not become ready.", "frontend", result.error)
         item.state, item.detail = "ready", "Started by launcher."; self.save(); return True
     def probe_optional(self) -> None:
         for name, url in (("voicevox", "http://127.0.0.1:50021/version"), ("ankiConnect", "http://127.0.0.1:8765")):

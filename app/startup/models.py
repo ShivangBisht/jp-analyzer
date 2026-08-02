@@ -1,9 +1,7 @@
 from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Literal
-
 ComponentState = Literal["pending", "starting", "ready", "degraded", "failed", "stopped"]
-
 @dataclass(frozen=True)
 class Problem:
     code: str
@@ -11,7 +9,7 @@ class Problem:
     component: str
     fatal: bool = False
     detail: str | None = None
-
+    suggested_action: str | None = None
 @dataclass
 class ComponentStatus:
     name: str
@@ -20,7 +18,6 @@ class ComponentStatus:
     detail: str | None = None
     pid: int | None = None
     url: str | None = None
-
 @dataclass
 class StartupSnapshot:
     schema: str = "ApplicationStartupSupervisor.v1"
@@ -28,5 +25,5 @@ class StartupSnapshot:
     components: dict[str, ComponentStatus] = field(default_factory=dict)
     problems: list[Problem] = field(default_factory=list)
     launcher_instance_id: str | None = None
-    def to_dict(self) -> dict:
-        return asdict(self)
+    diagnostics: dict = field(default_factory=dict)
+    def to_dict(self): return asdict(self)
