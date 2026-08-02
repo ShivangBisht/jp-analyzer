@@ -142,3 +142,4 @@ s*_actual.json
 *_raw.knp
 streamlined_*.json
 data/reader_corrections.sqlite3*
+config/startup.local.json

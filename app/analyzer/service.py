@@ -2,6 +2,8 @@ from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from app.startup.status_api import router as startup_status_router
+
 from .layers.dictionary_api import router as dictionary_sync_router
 from .layers.dictionary_evidence_api import router as dictionary_evidence_router
 from .reader_corrections_api import router as reader_corrections_router
@@ -45,6 +47,7 @@ app.include_router(teaching_tuning_corpus_router)
 app.include_router(teaching_guided_review_router)
 app.include_router(teaching_corpus_governance_router)
 app.include_router(teaching_tuning_handoff_router)
+app.include_router(startup_status_router)
 
 
 @app.get("/health")

@@ -1,0 +1,7 @@
+{
+  "schema": "JapaneseNovelMinerStartup.v1",
+  "analyzer": {"repository": "auto", "python": "auto", "host": "127.0.0.1", "port": 8766},
+  "frontend": {"repository": "auto", "host": "127.0.0.1", "port": 5173, "command": ["npm.cmd", "run", "dev", "--", "--host", "127.0.0.1"]},
+  "kwja": {"executable": "auto"},
+  "startup": {"openBrowser": true, "analyzerTimeoutSeconds": 120, "frontendTimeoutSeconds": 60}
+}
