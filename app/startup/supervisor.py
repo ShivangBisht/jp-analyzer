@@ -94,8 +94,57 @@ class ApplicationSupervisor:
         pid = listener_pid(port); current = identity(pid) if pid else None
         self.services[name] = Service(name, owned.process.pid, pid, port, str(repo.resolve()), url, kind, current.created if current else None)
         write_manifest(self.manifest_path, self.instance_id, os.getpid(), list(self.services.values()))
-    def required_services_healthy(self):
-        return service_ok("analyzer", self.config.analyzer_url + "/health") and service_ok("frontend", self.config.frontend_identity_url)
+    def required_service_health(self):
+        return {
+            "analyzer": service_ok(
+                "analyzer",
+                self.config.analyzer_url + "/health",
+                timeout=10.0,
+            ),
+            "frontend": service_ok(
+                "frontend",
+                self.config.frontend_identity_url,
+                timeout=10.0,
+            ),
+        }
+
+    def update_required_service_health(
+        self,
+        failure_counts,
+    ):
+        health = self.required_service_health()
+        failed_component = None
+
+        for name, healthy in health.items():
+            item = self.snapshot.components[name]
+
+            if healthy:
+                failure_counts[name] = 0
+
+                if item.state == "checking":
+                    item.state = "ready"
+                    item.detail = (
+                        "Service recovered after a "
+                        "temporary health-check failure."
+                    )
+
+                continue
+
+            failure_counts[name] += 1
+
+            if failure_counts[name] < 3:
+                item.state = "checking"
+                item.detail = (
+                    "Health check temporarily unavailable. "
+                    f"Retrying ({failure_counts[name]}/3)."
+                )
+            else:
+                failed_component = name
+                break
+
+        self.save()
+
+        return failed_component
     def ensure_analyzer(self) -> bool:
         item = self.snapshot.components["analyzer"]; item.url = self.config.analyzer_url
         result = probe(self.config.analyzer_url + "/health")
@@ -131,6 +180,11 @@ class ApplicationSupervisor:
             heartbeat_at = 0.0
             optional_probe_at = 0.0
             service_probe_at = 0.0
+
+            required_failure_counts = {
+                "analyzer": 0,
+                "frontend": 0,
+            }
             while not self.stopping:
                 time.sleep(1)
                 if shutdown_requested(self.shutdown_request_path):
@@ -145,7 +199,23 @@ class ApplicationSupervisor:
                     self.probe_optional()
                     optional_probe_at = now + 10
                 if now >= service_probe_at:
-                    if not self.required_services_healthy(): return self.fail("REQUIRED_SERVICE_LOST", "A required application service stopped responding.", "analyzer")
+                    failed_component = (
+                        self.update_required_service_health(
+                            required_failure_counts,
+                        )
+                    )
+
+                    if failed_component is not None:
+                        return self.fail(
+                            "REQUIRED_SERVICE_LOST",
+                            (
+                                "A required application service "
+                                "stopped responding after three "
+                                "consecutive health checks."
+                            ),
+                            failed_component,
+                        )
+
                     service_probe_at = now + 5
             return 0
         finally:

@@ -39,11 +39,36 @@ def listener_pid(port):
     try: return int(value)
     except (TypeError, ValueError): return None
 
-def service_ok(kind, url):
-    result = probe(url)
-    if not result.ok or not isinstance(result.body, dict): return False
-    if kind == "analyzer": return isinstance(result.body.get("dictionary") or result.body.get("dictionaryStatus"), dict)
-    return kind == "frontend" and result.body.get("application") == "JapaneseNovelMiner"
+def service_ok(
+    kind,
+    url,
+    *,
+    timeout=10.0,
+):
+    result = probe(
+        url,
+        timeout=timeout,
+    )
+
+    if not result.ok:
+        return False
+
+    if not isinstance(result.body, dict):
+        return False
+
+    if kind == "analyzer":
+        dictionary = (
+            result.body.get("dictionary")
+            or result.body.get("dictionaryStatus")
+        )
+
+        return isinstance(dictionary, dict)
+
+    return (
+        kind == "frontend"
+        and result.body.get("application")
+        == "JapaneseNovelMiner"
+    )
 
 def safe_listener(service):
     pid = listener_pid(service.port) or service.listener_pid
