@@ -18,13 +18,14 @@ from .teaching_guided_review_api import router as teaching_guided_review_router
 from .teaching_corpus_governance_api import router as teaching_corpus_governance_router
 from .teaching_tuning_handoff_api import router as teaching_tuning_handoff_router
 
-from .health import health_report
+from .health import health_report, liveness_report
 from .pipeline import analyze
 from .version import ANALYZER_VERSION
 
 
 class AnalyzeRequest(BaseModel):
     text: str
+    performanceDiagnostics: bool = False
 
 
 app = FastAPI(title="JP Analyzer", version=ANALYZER_VERSION)
@@ -55,11 +56,16 @@ def health():
     return health_report()
 
 
+@app.get("/liveness")
+def liveness():
+    return liveness_report()
+
+
 @app.post("/analyze")
 def analyze_endpoint(
     req: AnalyzeRequest,
     debug: bool = Query(False),
     dictionary: bool = Query(True),
 ):
-    return analyze(req.text, debug=debug, use_dictionary=dictionary)
+    return analyze(req.text, debug=debug, use_dictionary=dictionary, performance_diagnostics=req.performanceDiagnostics)
 

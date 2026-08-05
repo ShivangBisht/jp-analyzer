@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from threading import RLock
+from time import perf_counter
 
 from .layers.evidence_gate import (
     VERSION as CONSOLIDATED_ENGINE_VERSION,
@@ -34,6 +35,7 @@ def analyze_full(
     use_dictionary=True,
     raw_knp=None,
     kwja_executable=None,
+    performance_timings=None,
 ):
     if CONSOLIDATED_ENGINE_VERSION != ENGINE_CONTRACT_VERSION:
         raise RuntimeError(
@@ -45,8 +47,15 @@ def analyze_full(
         raw_knp=raw_knp,
         kwja_executable=kwja_executable,
     )
+    started = perf_counter()
     with _analysis_lock:
-        return _engine().analyze_full(text, nlp, options=options)
+        acquired = perf_counter(); engine = _engine(); ready = perf_counter()
+        result = engine.analyze_full(text, nlp, options=options); complete = perf_counter()
+    if performance_timings is not None:
+        performance_timings.update({"analysisLockWaitMs":(acquired-started)*1000,"engineConstructionMs":(ready-acquired)*1000,"layeredAnalysisMs":(complete-ready)*1000})
+        kwja=result.get("kwja_metadata_alpha1") or {}
+        if kwja.get("elapsed_ms") is not None: performance_timings["kwjaReportedMs"]=kwja.get("elapsed_ms")
+    return result
 
 
 def analyze(
@@ -57,18 +66,24 @@ def analyze(
     use_dictionary=True,
     raw_knp=None,
     kwja_executable=None,
+    performance_diagnostics=False,
 ):
+    total_started=perf_counter(); timings={} if performance_diagnostics else None
     full = analyze_full(
         text,
         nlp,
         use_dictionary=use_dictionary,
         raw_knp=raw_knp,
-        kwja_executable=kwja_executable,
+        kwja_executable=kwja_executable, performance_timings=timings,
     )
-    return full if debug else compact_analysis(
-        full,
-        analyzer_version=ANALYZER_VERSION,
-    )
+    projection_started=perf_counter()
+    output = full if debug else compact_analysis(full, analyzer_version=ANALYZER_VERSION)
+    projection_complete=perf_counter()
+    if performance_diagnostics:
+        timings["compactProjectionMs"]=(projection_complete-projection_started)*1000
+        timings["totalMs"]=(projection_complete-total_started)*1000
+        output=dict(output); output["performanceDiagnostics"]={"schema":"AnalyzerPerformanceTimings.v1","stages":timings,"observationalOnly":True}
+    return output
 
 
 def analyze_decision_snapshot(

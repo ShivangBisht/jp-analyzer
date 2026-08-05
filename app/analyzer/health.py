@@ -21,3 +21,8 @@ def health_report(runtime: AnalyzerRuntime | None = None) -> dict:
         "kwja": status.kwja,
         "dictionary": status.dictionary,
     }
+
+
+def liveness_report() -> dict:
+    """Minimal liveness; does not open SQLite or initialize NLP/KWJA."""
+    return {"status": "alive", "service": "jp-analyzer"}

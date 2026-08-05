@@ -97,8 +97,8 @@ class ApplicationSupervisor:
     def required_service_health(self):
         return {
             "analyzer": service_ok(
-                "analyzer",
-                self.config.analyzer_url + "/health",
+                "analyzer-liveness",
+                self.config.analyzer_url + "/liveness",
                 timeout=10.0,
             ),
             "frontend": service_ok(

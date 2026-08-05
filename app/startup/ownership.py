@@ -64,6 +64,9 @@ def service_ok(
 
         return isinstance(dictionary, dict)
 
+    if kind == "analyzer-liveness":
+        return result.body.get("status") == "alive" and result.body.get("service") == "jp-analyzer"
+
     return (
         kind == "frontend"
         and result.body.get("application")
