@@ -23,6 +23,13 @@ def shutdown_requested(path: Path) -> bool:
 def _compatible_analyzer(body):
     return isinstance(body, dict) and isinstance(body.get("dictionary") or body.get("dictionaryStatus"), dict)
 
+def _compatible_analyzer_liveness(body):
+    return (
+        isinstance(body, dict)
+        and body.get("status") == "alive"
+        and body.get("service") == "jp-analyzer"
+    )
+
 def _compatible_frontend(body):
     return isinstance(body, dict) and body.get("application") == FRONTEND_IDENTITY
 
@@ -80,7 +87,7 @@ class ApplicationSupervisor:
         if not self.config.kwja_executable or not self.config.kwja_executable.is_file():
             self.fail("KWJA_NOT_CONFIGURED", "KWJA executable was not found.", "kwja"); valid = False
         else:
-            self.snapshot.components["kwja"].state = "ready"; self.snapshot.components["kwja"].detail = str(self.config.kwja_executable)
+            self.snapshot.components["kwja"].state = "starting"; self.snapshot.components["kwja"].detail = "KWJA is configured; background warm-up has not completed."
         self.save(); return valid
     def apply_health(self, health: dict) -> None:
         data = health.get("dictionary") or health.get("dictionaryStatus") or {}
@@ -90,6 +97,18 @@ class ApplicationSupervisor:
         else:
             item.state = "failed"; item.detail = "Dictionary is not ready or requires recovery."
             self.snapshot.problems.append(Problem("DICTIONARY_NOT_READY", item.detail, "dictionary", True))
+        kwja = health.get("kwja") or {}
+        warmup = kwja.get("warmup") or {}
+        runtime = kwja.get("runtime") or {}
+        kwja_item = self.snapshot.components["kwja"]
+        if kwja.get("executionMode") == "fresh":
+            kwja_item.state = "ready"; kwja_item.detail = "KWJA fresh-process mode is active."
+        elif warmup.get("state") == "ready" and runtime.get("running"):
+            kwja_item.state = "ready"; kwja_item.detail = "Persistent KWJA is warm and ready."
+        elif warmup.get("state") == "failed":
+            kwja_item.state = "degraded"; kwja_item.detail = "Persistent warm-up failed; bounded recovery and fresh fallback remain available."
+        else:
+            kwja_item.state = "starting"; kwja_item.detail = "Persistent KWJA is warming in the background."
     def _record_service(self, name, owned, port, repo, url, kind):
         pid = listener_pid(port); current = identity(pid) if pid else None
         self.services[name] = Service(name, owned.process.pid, pid, port, str(repo.resolve()), url, kind, current.created if current else None)
@@ -120,7 +139,10 @@ class ApplicationSupervisor:
 
             if healthy:
                 failure_counts[name] = 0
-
+                if name == "analyzer" and hasattr(self, "config"):
+                    current = probe(self.config.analyzer_url + "/health", timeout=10.0)
+                    if current.ok and isinstance(current.body, dict):
+                        self.apply_health(current.body)
                 if item.state == "checking":
                     item.state = "ready"
                     item.detail = (
@@ -151,12 +173,12 @@ class ApplicationSupervisor:
         if result.ok and _compatible_analyzer(result.body):
             item.state, item.detail = "ready", "Reused running analyzer."; self.apply_health(result.body); self.save(); return True
         if tcp_port_open(self.config.analyzer_host, self.config.analyzer_port): return self.fail("ANALYZER_PORT_CONFLICT", f"Port {self.config.analyzer_port} is occupied by an incompatible service.", "analyzer", result.error)
-        item.state = "starting"; self.save(); env = dict(os.environ); env["KWJA_EXE"] = str(self.config.kwja_executable)
+        item.state = "starting"; self.save(); env = dict(os.environ); env["KWJA_EXE"] = str(self.config.kwja_executable); env["KWJA_EXECUTION_MODE"] = self.config.kwja_execution_mode
         command = [str(self.config.analyzer_python), "-m", "uvicorn", "app.analyzer.service:app", "--host", self.config.analyzer_host, "--port", str(self.config.analyzer_port)]
         owned = self.processes.start("jp-analyzer", command, self.config.analyzer_repo, env); item.pid = owned.process.pid
-        result = wait_for(self.config.analyzer_url + "/health", self.config.analyzer_timeout_seconds, owned.process)
-        if not result.ok or not isinstance(result.body, dict): return self.fail("ANALYZER_START_FAILED", "JP Analyzer did not become ready.", "analyzer", result.error)
-        item.state, item.detail = "ready", "Started by launcher."; self.apply_health(result.body); self._record_service("analyzer", owned, self.config.analyzer_port, self.config.analyzer_repo, self.config.analyzer_url + "/health", "analyzer"); self.save(); return True
+        result = wait_for(self.config.analyzer_url + "/liveness", self.config.analyzer_timeout_seconds, owned.process)
+        if not result.ok or not _compatible_analyzer_liveness(result.body): return self.fail("ANALYZER_START_FAILED", "JP Analyzer did not become live.", "analyzer", result.error)
+        item.state, item.detail = "ready", "Started by launcher."; self._record_service("analyzer", owned, self.config.analyzer_port, self.config.analyzer_repo, self.config.analyzer_url + "/health", "analyzer"); self.save(); return True
     def ensure_frontend(self) -> bool:
         item = self.snapshot.components["frontend"]; item.url = self.config.frontend_url
         identity = probe(self.config.frontend_identity_url)
