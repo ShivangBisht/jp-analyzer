@@ -546,7 +546,10 @@ def run() -> None:
             test_new_sync_interrupts_old_session()
             test_received_count_exceeded_preserves_live()
             test_additive_migration_from_legacy_schema()
-            test_clear_removes_live_and_session_data()
+            # This file is also executed directly by run_tests.ps1. The
+            # intentionally skipped legacy bulk-clear case remains visible to
+            # pytest collection, but direct execution must not turn
+            # pytest.skip() into a process failure.
         finally:
             dictionary_store.DB_PATH = ORIGINAL_DB_PATH
 
