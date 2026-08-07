@@ -1,9 +1,9 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-
 from app.startup.status_api import router as startup_status_router
-
 from .layers.dictionary_api import router as dictionary_sync_router
 from .layers.dictionary_evidence_api import router as dictionary_evidence_router
 from .reader_corrections_api import router as reader_corrections_router
@@ -17,10 +17,10 @@ from .teaching_tuning_corpus_api import router as teaching_tuning_corpus_router
 from .teaching_guided_review_api import router as teaching_guided_review_router
 from .teaching_corpus_governance_api import router as teaching_corpus_governance_router
 from .teaching_tuning_handoff_api import router as teaching_tuning_handoff_router
-
 from .health import health_report, liveness_report
 from .pipeline import analyze
 from .version import ANALYZER_VERSION
+from .kwja_warmup import start_kwja_warmup, shutdown_kwja_runtime
 
 
 class AnalyzeRequest(BaseModel):
@@ -28,7 +28,17 @@ class AnalyzeRequest(BaseModel):
     performanceDiagnostics: bool = False
 
 
-app = FastAPI(title="JP Analyzer", version=ANALYZER_VERSION)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Threaded warm-up keeps /liveness immediately available. It is a no-op in fresh mode.
+    start_kwja_warmup()
+    try:
+        yield
+    finally:
+        shutdown_kwja_runtime()
+
+
+app = FastAPI(title="JP Analyzer", version=ANALYZER_VERSION, lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
@@ -68,4 +78,3 @@ def analyze_endpoint(
     dictionary: bool = Query(True),
 ):
     return analyze(req.text, debug=debug, use_dictionary=dictionary, performance_diagnostics=req.performanceDiagnostics)
-

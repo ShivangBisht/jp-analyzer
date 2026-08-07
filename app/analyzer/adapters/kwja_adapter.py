@@ -25,4 +25,9 @@ class KwjaAdapter:
         selected = executable
         if raw_knp is None and selected is None:
             selected = str(resolve_kwja_executable(config=self.config))
-        return analyze_kwja(text, raw_knp=raw_knp, executable=selected)
+        return analyze_kwja(
+            text,
+            raw_knp=raw_knp,
+            executable=selected,
+            config=self.config,
+        )
