@@ -14,9 +14,9 @@ WorkerFactory = Callable[[str], InteractiveKwjaWorker]
 class PersistentKwjaRuntime:
     """Own one serialized interactive KWJA worker for one executable.
 
-    This class changes execution lifecycle only. It returns the raw KNP stream
-    produced by KWJA and leaves all normalization and linguistic decisions to
-    the existing validated analyzer path.
+    Runtime recovery is bounded to one clean-worker retry. If both persistent
+    attempts fail, the caller may use the unchanged fresh-process route.
+    Linguistic normalization and decisions remain outside this class.
     """
 
     def __init__(
@@ -35,6 +35,10 @@ class PersistentKwjaRuntime:
         self._worker: InteractiveKwjaWorker | None = None
         self._generation = 0
         self._request_count = 0
+        self._restart_count = 0
+        self._fallback_count = 0
+        self._last_error: str | None = None
+        self._last_execution_mode = "idle"
 
     def _default_worker_factory(self, executable: str) -> InteractiveKwjaWorker:
         return InteractiveKwjaWorker(executable, model_size=self.model_size)
@@ -51,22 +55,43 @@ class PersistentKwjaRuntime:
         self._generation += 1
         return worker
 
-    def analyze(self, text: str) -> WorkerResult:
-        """Analyze one sentence while preventing protocol interleaving.
+    def _analyze_once_locked(self, text: str) -> WorkerResult:
+        worker = self._ensure_worker()
+        try:
+            result = worker.analyze(text, timeout_seconds=self.timeout_seconds)
+        except Exception as error:
+            self._last_error = f"{type(error).__name__}: {error}"
+            self._invalidate_locked()
+            raise
+        self._request_count += 1
+        self._last_error = None
+        self._last_execution_mode = "persistent"
+        return result
 
-        Any failure invalidates the worker because delayed or partial output
-        must never be consumed by a later request. Recovery/fallback policy is
-        intentionally deferred to Phase 12A.3B.
+    def analyze(self, text: str) -> WorkerResult:
+        """Perform one persistent attempt, preserving the A.3A API."""
+        with self._lock:
+            return self._analyze_once_locked(text)
+
+    def analyze_with_retry(self, text: str) -> WorkerResult:
+        """Retry once with a clean worker after a persistent failure.
+
+        The failed worker is already invalidated by the first attempt. A second
+        failure is propagated so the transport adapter can use the established
+        fresh-process fallback. No uncertain worker is ever reused.
         """
         with self._lock:
-            worker = self._ensure_worker()
             try:
-                result = worker.analyze(text, timeout_seconds=self.timeout_seconds)
-            except BaseException:
-                self._invalidate_locked()
-                raise
-            self._request_count += 1
-            return result
+                return self._analyze_once_locked(text)
+            except Exception:
+                self._restart_count += 1
+                self._last_execution_mode = "persistent-retry"
+                return self._analyze_once_locked(text)
+
+    def record_fallback(self) -> None:
+        with self._lock:
+            self._fallback_count += 1
+            self._last_execution_mode = "fresh-fallback"
 
     def _invalidate_locked(self) -> None:
         worker = self._worker
@@ -86,6 +111,10 @@ class PersistentKwjaRuntime:
                 "processId": diagnostics.get("processId"),
                 "generation": self._generation,
                 "requestCount": self._request_count,
+                "restartCount": self._restart_count,
+                "fallbackCount": self._fallback_count,
+                "lastExecutionMode": self._last_execution_mode,
+                "lastError": self._last_error,
                 "modelSize": self.model_size,
             }
 

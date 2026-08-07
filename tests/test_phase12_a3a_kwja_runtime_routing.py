@@ -27,9 +27,12 @@ def test_persistent_mode_only_replaces_raw_kwja_transport(monkeypatch, tmp_path)
     captured = {}
 
     class Runtime:
-        def analyze(self, text):
+        def analyze_with_retry(self, text):
             captured["workerText"] = text
             return type("Result", (), {"output": "RAW KNP\nEOS\n"})()
+
+        def record_fallback(self):
+            raise AssertionError("successful persistent execution must not fall back")
 
     def fake_analyze(text, *, raw_knp, executable):
         captured.update(text=text, raw_knp=raw_knp, executable=executable)

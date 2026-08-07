@@ -35,7 +35,12 @@ def analyze_kwja(text, *, raw_knp=None, executable=None, config=None):
 
     path = resolve_kwja_executable(executable, cfg)
     if cfg.kwja_execution_mode == "persistent":
-        worker_result = get_persistent_kwja_runtime(str(path)).analyze(text)
+        runtime = get_persistent_kwja_runtime(str(path))
+        try:
+            worker_result = runtime.analyze_with_retry(text)
+        except Exception:
+            runtime.record_fallback()
+            return analyze_kwja_alpha1(text, raw_knp=None, executable=str(path))
         return analyze_kwja_alpha1(text, raw_knp=worker_result.output, executable=None)
 
     return analyze_kwja_alpha1(text, raw_knp=None, executable=str(path))
